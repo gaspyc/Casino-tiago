@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-200 -200 400 400" width="400" height="400">
+  <!-- Borde exterior doradito -->
+  <circle cx="0" cy="0" r="195" fill="#1e293b" stroke="#f59e0b" stroke-width="10" />
+  <path d="M 0 0 L -15.27 -179.35 A 180 180 0 0 1 15.27 -179.35 Z" fill="#10b981" stroke="#334155" stroke-width="1"/>
+  <text x="0.00" y="-150.00" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(0.00, 0.00, -150.00)">0</text>
+  <path d="M 0 0 L 15.27 -179.35 A 180 180 0 0 1 45.36 -174.19 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="25.35" y="-147.84" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(9.73, 25.35, -147.84)">32</text>
+  <path d="M 0 0 L 45.36 -174.19 A 180 180 0 0 1 74.14 -164.02 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="49.97" y="-141.43" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(19.46, 49.97, -141.43)">15</text>
+  <path d="M 0 0 L 74.14 -164.02 A 180 180 0 0 1 100.80 -149.13 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="73.15" y="-130.95" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(29.19, 73.15, -130.95)">19</text>
+  <path d="M 0 0 L 100.80 -149.13 A 180 180 0 0 1 124.55 -129.95 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="94.23" y="-116.71" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(38.92, 94.23, -116.71)">4</text>
+  <path d="M 0 0 L 124.55 -129.95 A 180 180 0 0 1 144.72 -107.03 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="112.60" y="-99.10" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(48.65, 112.60, -99.10)">21</text>
+  <path d="M 0 0 L 144.72 -107.03 A 180 180 0 0 1 160.73 -81.04 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="127.73" y="-78.65" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(58.38, 127.73, -78.65)">2</text>
+  <path d="M 0 0 L 160.73 -81.04 A 180 180 0 0 1 172.11 -52.71 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="139.18" y="-55.93" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(68.11, 139.18, -55.93)">25</text>
+  <path d="M 0 0 L 172.11 -52.71 A 180 180 0 0 1 178.54 -22.86 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="146.63" y="-31.60" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(77.84, 146.63, -31.60)">17</text>
+  <path d="M 0 0 L 178.54 -22.86 A 180 180 0 0 1 179.84 7.64 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="149.86" y="-6.37" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(87.57, 149.86, -6.37)">34</text>
+  <path d="M 0 0 L 179.84 7.64 A 180 180 0 0 1 175.96 37.92 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="148.79" y="19.05" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(97.30, 148.79, 19.05)">6</text>
+  <path d="M 0 0 L 175.96 37.92 A 180 180 0 0 1 167.02 67.11 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="143.43" y="43.92" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(107.03, 143.43, 43.92)">27</text>
+  <path d="M 0 0 L 167.02 67.11 A 180 180 0 0 1 153.28 94.38 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="133.94" y="67.53" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(116.76, 133.94, 67.53)">13</text>
+  <path d="M 0 0 L 153.28 94.38 A 180 180 0 0 1 135.12 118.92 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="120.60" y="89.19" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(126.49, 120.60, 89.19)">36</text>
+  <path d="M 0 0 L 135.12 118.92 A 180 180 0 0 1 113.08 140.05 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="103.79" y="108.29" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(136.22, 103.79, 108.29)">11</text>
+  <path d="M 0 0 L 113.08 140.05 A 180 180 0 0 1 87.79 157.14 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="84.00" y="124.28" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(145.95, 84.00, 124.28)">30</text>
+  <path d="M 0 0 L 87.79 157.14 A 180 180 0 0 1 59.97 169.72 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="61.79" y="136.68" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(155.68, 61.79, 136.68)">8</text>
+  <path d="M 0 0 L 59.97 169.72 A 180 180 0 0 1 30.42 177.41 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="37.80" y="145.16" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(165.41, 37.80, 145.16)">23</text>
+  <path d="M 0 0 L 30.42 177.41 A 180 180 0 0 1 0.00 180.00 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="12.72" y="149.46" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(175.14, 12.72, 149.46)">10</text>
+  <path d="M 0 0 L 0.00 180.00 A 180 180 0 0 1 -30.42 177.41 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="-12.72" y="149.46" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(184.86, -12.72, 149.46)">5</text>
+  <path d="M 0 0 L -30.42 177.41 A 180 180 0 0 1 -59.97 169.72 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="-37.80" y="145.16" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(194.59, -37.80, 145.16)">24</text>
+  <path d="M 0 0 L -59.97 169.72 A 180 180 0 0 1 -87.79 157.14 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="-61.79" y="136.68" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(204.32, -61.79, 136.68)">16</text>
+  <path d="M 0 0 L -87.79 157.14 A 180 180 0 0 1 -113.08 140.05 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="-84.00" y="124.28" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(214.05, -84.00, 124.28)">33</text>
+  <path d="M 0 0 L -113.08 140.05 A 180 180 0 0 1 -135.12 118.92 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="-103.79" y="108.29" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(223.78, -103.79, 108.29)">1</text>
+  <path d="M 0 0 L -135.12 118.92 A 180 180 0 0 1 -153.28 94.38 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="-120.60" y="89.19" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(233.51, -120.60, 89.19)">20</text>
+  <path d="M 0 0 L -153.28 94.38 A 180 180 0 0 1 -167.02 67.11 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="-133.94" y="67.53" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(243.24, -133.94, 67.53)">14</text>
+  <path d="M 0 0 L -167.02 67.11 A 180 180 0 0 1 -175.96 37.92 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="-143.43" y="43.92" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(252.97, -143.43, 43.92)">31</text>
+  <path d="M 0 0 L -175.96 37.92 A 180 180 0 0 1 -179.84 7.64 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="-148.79" y="19.05" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(262.70, -148.79, 19.05)">9</text>
+  <path d="M 0 0 L -179.84 7.64 A 180 180 0 0 1 -178.54 -22.86 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="-149.86" y="-6.37" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(272.43, -149.86, -6.37)">22</text>
+  <path d="M 0 0 L -178.54 -22.86 A 180 180 0 0 1 -172.11 -52.71 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="-146.63" y="-31.60" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(282.16, -146.63, -31.60)">18</text>
+  <path d="M 0 0 L -172.11 -52.71 A 180 180 0 0 1 -160.73 -81.04 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="-139.18" y="-55.93" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(291.89, -139.18, -55.93)">29</text>
+  <path d="M 0 0 L -160.73 -81.04 A 180 180 0 0 1 -144.72 -107.03 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="-127.73" y="-78.65" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(301.62, -127.73, -78.65)">7</text>
+  <path d="M 0 0 L -144.72 -107.03 A 180 180 0 0 1 -124.55 -129.95 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="-112.60" y="-99.10" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(311.35, -112.60, -99.10)">28</text>
+  <path d="M 0 0 L -124.55 -129.95 A 180 180 0 0 1 -100.80 -149.13 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="-94.23" y="-116.71" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(321.08, -94.23, -116.71)">12</text>
+  <path d="M 0 0 L -100.80 -149.13 A 180 180 0 0 1 -74.14 -164.02 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="-73.15" y="-130.95" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(330.81, -73.15, -130.95)">35</text>
+  <path d="M 0 0 L -74.14 -164.02 A 180 180 0 0 1 -45.36 -174.19 Z" fill="#ef4444" stroke="#334155" stroke-width="1"/>
+  <text x="-49.97" y="-141.43" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(340.54, -49.97, -141.43)">3</text>
+  <path d="M 0 0 L -45.36 -174.19 A 180 180 0 0 1 -15.27 -179.35 Z" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+  <text x="-25.35" y="-147.84" fill="#ffffff" font-family="Arial" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="middle" transform="rotate(350.27, -25.35, -147.84)">26</text>
+  <circle cx="0" cy="0" r="110" fill="#334155" stroke="#f59e0b" stroke-width="4" />
+  <circle cx="0" cy="0" r="90" fill="#0f172a" />
+  <!-- Estrella/Cruz central -->
+  <line x1="0" y1="-90" x2="0" y2="90" stroke="#475569" stroke-width="4" transform="rotate(0)" />
+  <line x1="0" y1="-90" x2="0" y2="90" stroke="#475569" stroke-width="4" transform="rotate(45)" />
+  <line x1="0" y1="-90" x2="0" y2="90" stroke="#475569" stroke-width="4" transform="rotate(90)" />
+  <line x1="0" y1="-90" x2="0" y2="90" stroke="#475569" stroke-width="4" transform="rotate(135)" />
+  <circle cx="0" cy="0" r="20" fill="#f59e0b" />
+</svg>

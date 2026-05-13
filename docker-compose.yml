@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: casino_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-casino_db}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: casino_backend
+    restart: always
+    environment:
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-casino_db}
+    ports:
+      - "8001:8000"
+    volumes:
+      # Montamos el código local en el contenedor para ver cambios en tiempo real
+      - ./backend:/app
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: casino_frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    volumes:
+      # Montamos el código local para hot-reload
+      - ./frontend:/app
+      # Evitamos que el volumen local sobreescriba los node_modules de Linux
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
