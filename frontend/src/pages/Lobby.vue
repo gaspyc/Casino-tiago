@@ -44,6 +44,13 @@
           <p>Juega en vivo con otros usuarios en la misma mesa.</p>
           <div class="play-btn" style="color: #8b5cf6;">Ver Salas</div>
         </div>
+
+        <div class="glass-panel game-card" style="border-top-color: #ef4444;" @click="router.push('/lobby-poker')">
+          <div class="game-icon">♠️</div>
+          <h3>Texas Hold'em Poker</h3>
+          <p>Torneos y mesas cash en vivo. ¡Farolea y gana el pozo!</p>
+          <div class="play-btn" style="color: #ef4444;">Ver Salas</div>
+        </div>
       </div>
     </div>
 

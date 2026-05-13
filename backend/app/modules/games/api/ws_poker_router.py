@@ -7,20 +7,19 @@ from app.shared.database import get_db
 from app.shared.websockets import manager
 from app.shared.security import verify_access_token
 from app.modules.users.infrastructure.models import User
-from app.modules.games.infrastructure.models import BlackjackTable
+from app.modules.games.infrastructure.models import PokerTable
 from app.modules.games.domain.multiplayer_entities import TableResponse
-from app.modules.games.application.ws_blackjack_service import process_ws_action, get_table_state
+from app.modules.games.application.ws_poker_service import process_ws_poker_action, get_poker_state
 
-router = APIRouter(prefix="/games/blackjack-mp", tags=["Blackjack Multiplayer"])
+router = APIRouter(prefix="/games/poker-mp", tags=["Poker Multiplayer"])
 
 @router.get("/tables", response_model=list[TableResponse])
 async def list_tables(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(BlackjackTable))
+    result = await db.execute(select(PokerTable))
     tables = result.scalars().all()
     
-    # Si no hay mesas, creamos una por defecto
     if not tables:
-        default_table = BlackjackTable(name="Mesa Principal VIP", deck=[], dealer_hand=[])
+        default_table = PokerTable(name="Mesa Texas Hold'em", deck=[], community_cards=[])
         db.add(default_table)
         await db.commit()
         await db.refresh(default_table)
@@ -36,7 +35,7 @@ async def list_tables(db: AsyncSession = Depends(get_db)):
     ]
 
 @router.websocket("/ws/{table_id}")
-async def websocket_endpoint(websocket: WebSocket, table_id: int, token: str = Query(...), db: AsyncSession = Depends(get_db)):
+async def websocket_poker_endpoint(websocket: WebSocket, table_id: int, token: str = Query(...), db: AsyncSession = Depends(get_db)):
     payload = verify_access_token(token)
     if not payload:
         await websocket.close(code=1008)
@@ -47,7 +46,6 @@ async def websocket_endpoint(websocket: WebSocket, table_id: int, token: str = Q
         await websocket.close(code=1008)
         return
         
-    # Verify user exists
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
     if not user:
@@ -56,10 +54,11 @@ async def websocket_endpoint(websocket: WebSocket, table_id: int, token: str = Q
         
     user_id = user.id
 
-    await manager.connect(websocket, table_id)
+    # For poker, we differentiate connections by prefixing table_id to avoid collissions with blackjack
+    poker_room_id = f"poker_{table_id}"
+    await manager.connect(websocket, poker_room_id)
     
-    # Enviar estado actual de la mesa al conectar
-    state = await get_table_state(db, table_id)
+    state = await get_poker_state(db, table_id)
     if state:
         await websocket.send_text(json.dumps({"type": "state_update", "data": state}))
     
@@ -68,16 +67,14 @@ async def websocket_endpoint(websocket: WebSocket, table_id: int, token: str = Q
             data = await websocket.receive_text()
             action_data = json.loads(data)
             
-            # Procesar la acción (join, bet, hit, stand)
-            new_state = await process_ws_action(db, table_id, user_id, action_data)
+            new_state = await process_ws_poker_action(db, table_id, user_id, action_data)
             
-            # Broadcast the new state to all connected clients
             if new_state:
-                await manager.broadcast({"type": "state_update", "data": new_state}, table_id)
+                await manager.broadcast({"type": "state_update", "data": new_state}, poker_room_id)
                 
     except WebSocketDisconnect:
-        manager.disconnect(websocket, table_id)
-        # Procesar salida del jugador y devolver apuestas si corresponde
-        new_state = await process_ws_action(db, table_id, user_id, {"action": "leave"})
+        manager.disconnect(websocket, poker_room_id)
+        # Auto-leave upon disconnect
+        new_state = await process_ws_poker_action(db, table_id, user_id, {"action": "leave"})
         if new_state:
-            await manager.broadcast({"type": "state_update", "data": new_state}, table_id)
+            await manager.broadcast({"type": "state_update", "data": new_state}, poker_room_id)

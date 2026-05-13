@@ -13,6 +13,7 @@ from app.modules.users.api.router import router as users_router
 from app.modules.wallet.api.router import router as wallet_router
 from app.modules.games.api.router import router as games_router
 from app.modules.games.api.ws_router import router as ws_blackjack_router
+from app.modules.games.api.ws_poker_router import router as ws_poker_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,6 +42,7 @@ app.include_router(users_router, prefix=settings.API_V1_STR)
 app.include_router(wallet_router, prefix=settings.API_V1_STR)
 app.include_router(games_router, prefix=settings.API_V1_STR)
 app.include_router(ws_blackjack_router, prefix=settings.API_V1_STR)
+app.include_router(ws_poker_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 async def root():

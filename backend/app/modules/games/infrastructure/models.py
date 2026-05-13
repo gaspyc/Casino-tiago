@@ -41,3 +41,21 @@ class BlackjackTable(Base):
     current_turn_index = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class PokerTable(Base):
+    __tablename__ = "poker_tables"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    status = Column(String, default="WAITING_PLAYERS", nullable=False) # WAITING_PLAYERS, PRE_FLOP, FLOP, TURN, RIVER, SHOWDOWN
+    deck = Column(JSONB, nullable=False)
+    community_cards = Column(JSONB, default=list, nullable=False)
+    players_data = Column(JSONB, default=list, nullable=False)
+    current_turn_index = Column(Integer, default=0, nullable=False)
+    pot = Column(Numeric(10, 2), default=0.00, nullable=False)
+    current_bet = Column(Numeric(10, 2), default=0.00, nullable=False)
+    dealer_button_index = Column(Integer, default=0, nullable=False)
+    small_blind = Column(Numeric(10, 2), default=5.00, nullable=False)
+    big_blind = Column(Numeric(10, 2), default=10.00, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
