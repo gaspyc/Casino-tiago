@@ -12,12 +12,11 @@ from app.modules.games.infrastructure.models import Bet
 from app.modules.users.api.router import router as users_router
 from app.modules.wallet.api.router import router as wallet_router
 from app.modules.games.api.router import router as games_router
+from app.modules.games.api.ws_router import router as ws_blackjack_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Evento de inicio: crear tablas en la BD
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Ya no usamos Base.metadata.create_all, Alembic maneja las migraciones.
     yield
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,6 +40,7 @@ app.add_middleware(
 app.include_router(users_router, prefix=settings.API_V1_STR)
 app.include_router(wallet_router, prefix=settings.API_V1_STR)
 app.include_router(games_router, prefix=settings.API_V1_STR)
+app.include_router(ws_blackjack_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 async def root():

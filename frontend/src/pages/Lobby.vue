@@ -37,6 +37,13 @@
           <p>Desafía al Croupier. Demuestra tu estrategia para llegar a 21.</p>
           <div class="play-btn">Jugar Ahora</div>
         </div>
+        
+        <div class="glass-panel game-card" style="border-top-color: #8b5cf6;" @click="router.push('/lobby-blackjack')">
+          <div class="game-icon">👥</div>
+          <h3>Blackjack Multijugador</h3>
+          <p>Juega en vivo con otros usuarios en la misma mesa.</p>
+          <div class="play-btn" style="color: #8b5cf6;">Ver Salas</div>
+        </div>
       </div>
     </div>
 

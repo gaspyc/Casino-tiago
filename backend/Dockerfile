@@ -25,5 +25,5 @@ COPY . .
 # Exponer el puerto
 EXPOSE 8000
 
-# Comando para correr en desarrollo con recarga automática
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Comando para correr en desarrollo con recarga automática, ejecutando primero las migraciones
+CMD sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"

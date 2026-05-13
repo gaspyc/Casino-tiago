@@ -4,6 +4,8 @@ import Lobby from '../pages/Lobby.vue';
 import Roulette from '../pages/Roulette.vue';
 import Slots from '../pages/Slots.vue';
 import Blackjack from '../pages/Blackjack.vue';
+import BlackjackLobby from '../pages/BlackjackLobby.vue';
+import BlackjackMultiplayer from '../pages/BlackjackMultiplayer.vue';
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -11,7 +13,9 @@ const routes = [
   { path: '/lobby', component: Lobby, meta: { requiresAuth: true } },
   { path: '/roulette', component: Roulette, meta: { requiresAuth: true } },
   { path: '/slots', component: Slots, meta: { requiresAuth: true } },
-  { path: '/blackjack', component: Blackjack, meta: { requiresAuth: true } }
+  { path: '/blackjack', component: Blackjack, meta: { requiresAuth: true } },
+  { path: '/lobby-blackjack', component: BlackjackLobby, meta: { requiresAuth: true } },
+  { path: '/blackjack-mp/:id', component: BlackjackMultiplayer, meta: { requiresAuth: true } }
 ];
 
 const router = createRouter({
