@@ -19,7 +19,8 @@ const routes = [
   { path: '/lobby-blackjack', component: BlackjackLobby, meta: { requiresAuth: true } },
   { path: '/blackjack-mp/:id', component: BlackjackMultiplayer, meta: { requiresAuth: true } },
   { path: '/lobby-poker', component: PokerLobby, meta: { requiresAuth: true } },
-  { path: '/poker-mp/:id', component: PokerMultiplayer, meta: { requiresAuth: true } }
+  { path: '/poker-mp/:id', component: PokerMultiplayer, meta: { requiresAuth: true } },
+  { path: '/crash', component: () => import('../pages/Crash.vue'), meta: { requiresAuth: true } }
 ];
 
 const router = createRouter({
@@ -27,15 +28,14 @@ const router = createRouter({
   routes
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
   const token = localStorage.getItem('casino_token');
   if (to.meta.requiresAuth && !token) {
-    next('/login');
+    return '/login';
   } else if (to.path === '/login' && token) {
-    next('/lobby');
-  } else {
-    next();
+    return '/lobby';
   }
+  return true;
 });
 
 export default router;

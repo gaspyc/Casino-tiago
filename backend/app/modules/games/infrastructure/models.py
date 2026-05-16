@@ -59,3 +59,23 @@ class PokerTable(Base):
     big_blind = Column(Numeric(10, 2), default=10.00, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class CrashGameSession(Base):
+    __tablename__ = "crash_game_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    status = Column(String, default="BETTING", nullable=False) # BETTING, IN_PROGRESS, CRASHED
+    crash_point = Column(Numeric(10, 2), nullable=False) # The multiplier where it crashes
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class CrashBet(Base):
+    __tablename__ = "crash_bets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("crash_game_sessions.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    bet_amount = Column(Numeric(10, 2), nullable=False)
+    cashout_multiplier = Column(Numeric(10, 2), nullable=True) # None if the user didn't cash out before crash
+    payout = Column(Numeric(10, 2), default=0.00, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

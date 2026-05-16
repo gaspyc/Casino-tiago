@@ -87,4 +87,26 @@ const joinTable = (id) => {
   width: 100%;
 }
 .btn-join:hover { background: #059669; }
+
+@media (max-width: 768px) {
+  .lobby-page {
+    padding: 15px;
+  }
+  .header-row {
+    flex-direction: column;
+    padding: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .header-row h2 {
+    font-size: 1.5rem;
+    margin: 0;
+  }
+  .tables-grid {
+    grid-template-columns: 1fr;
+  }
+  .table-card {
+    padding: 20px;
+  }
+}
 </style>

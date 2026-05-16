@@ -141,7 +141,11 @@ const spinSlots = async () => {
       reelStrips.value[i][stripLen - 2] = resultLine[i];
     }
     
-    const SYMBOL_HEIGHT = 100; // px
+    const getSymbolHeight = () => {
+      const sym = document.querySelector('.symbol');
+      return sym ? sym.clientHeight : 100;
+    };
+    const SYMBOL_HEIGHT = getSymbolHeight();
     
     // Animar
     setTimeout(() => {
@@ -379,4 +383,82 @@ h2 {
 }
 .pay-item span:first-child { letter-spacing: 2px; }
 .pay-item span:last-child { font-weight: bold; color: var(--accent-green); }
+
+/* --- Mobile Responsiveness --- */
+@media (max-width: 768px) {
+  .slots-page {
+    padding: 10px;
+  }
+  .header-row {
+    flex-direction: row;
+    padding: 10px;
+    margin-bottom: 15px;
+  }
+  .main-layout {
+    padding: 15px;
+  }
+  h2 {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+  }
+  .slot-machine {
+    padding: 10px;
+    margin-bottom: 20px;
+  }
+  .reels-container {
+    height: 240px; /* 3 x 80px */
+    gap: 10px;
+    padding: 10px;
+  }
+  .reel {
+    width: 90px;
+  }
+  .symbol {
+    height: 80px;
+    font-size: 3rem;
+  }
+  .controls {
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+  }
+  .bet-controls {
+    width: 100%;
+    justify-content: center;
+  }
+  .btn-spin {
+    width: 100%;
+    padding: 14px 20px;
+  }
+  .paytable {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 15px;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .pay-item {
+    font-size: 1rem;
+    padding: 8px 10px;
+  }
+  .result-message {
+    font-size: 1.2rem;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .reels-container {
+    height: 210px; /* 3 x 70px */
+  }
+  .reel {
+    width: 70px;
+  }
+  .symbol {
+    height: 70px;
+    font-size: 2.5rem;
+  }
+  .paytable {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

@@ -526,4 +526,70 @@ h2 { margin-top: 0; color: #fff; font-size: 2.5rem; letter-spacing: 2px;}
   0% { transform: scale(0.8); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* --- Mobile Responsiveness --- */
+@media (max-width: 768px) {
+  .blackjack-page {
+    padding: 10px;
+  }
+  .header-row {
+    flex-direction: row;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .main-layout {
+    padding: 15px;
+  }
+  .game-table {
+    padding: 10px;
+  }
+  .card {
+    width: 65px;
+    height: 95px;
+    font-size: 1.6rem;
+  }
+  .cards {
+    gap: 5px;
+  }
+  .actions {
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .actions button {
+    flex: 1 1 45%;
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+  .split-hands {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .modal-content {
+    min-width: 300px;
+    padding: 20px;
+  }
+  .modal-content h2 {
+    font-size: 2rem;
+  }
+  .summary-details p {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    width: 55px;
+    height: 80px;
+    font-size: 1.4rem;
+  }
+  /* Card overlap if too many cards */
+  .cards .card:not(:first-child) {
+    margin-left: -20px;
+  }
+  .cards .card:hover {
+    transform: translateY(-10px) scale(1.1);
+    z-index: 10;
+  }
+}
 </style>

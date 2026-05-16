@@ -26,7 +26,7 @@ from app.shared.config import settings
 from app.shared.database import Base
 from app.modules.users.infrastructure.models import User
 from app.modules.wallet.infrastructure.models import Transaction
-from app.modules.games.infrastructure.models import Bet, BlackjackGame, BlackjackTable, PokerTable
+from app.modules.games.infrastructure.models import Bet, BlackjackGame, BlackjackTable, PokerTable, CrashGameSession, CrashBet
 
 # Set database url dynamically
 config.set_main_option("sqlalchemy.url", settings.async_database_url)

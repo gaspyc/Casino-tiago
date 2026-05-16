@@ -51,6 +51,13 @@
           <p>Torneos y mesas cash en vivo. ¡Farolea y gana el pozo!</p>
           <div class="play-btn" style="color: #ef4444;">Ver Salas</div>
         </div>
+        
+        <div class="glass-panel game-card" style="border-top-color: #f59e0b;" @click="router.push('/crash')">
+          <div class="game-icon">🚀</div>
+          <h3>Crash (Multiplayer)</h3>
+          <p>El multiplicador sube, ¡retírate antes de que explote!</p>
+          <div class="play-btn" style="color: #f59e0b;">Jugar Crash</div>
+        </div>
       </div>
     </div>
 

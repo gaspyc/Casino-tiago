@@ -363,4 +363,56 @@ const getSuitClass = (cardStr) => {
   0% { transform: scale(0.5); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
+
+/* --- Mobile Responsiveness --- */
+@media (max-width: 768px) {
+  .mp-blackjack {
+    padding: 10px;
+  }
+  .header-row {
+    flex-direction: column;
+    padding: 10px;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .main-layout {
+    padding: 15px;
+    min-height: auto;
+  }
+  .players-circle {
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .player-spot {
+    min-width: 120px;
+    padding: 10px;
+  }
+  .card {
+    width: 60px;
+    height: 85px;
+    font-size: 1.5rem;
+  }
+  .card.mini {
+    width: 45px;
+    height: 65px;
+    font-size: 1.2rem;
+  }
+  .actions-panel {
+    padding: 15px;
+  }
+  .bet-controls {
+    flex-wrap: wrap;
+  }
+  .btn-bet, .btn-deal, .btn-join {
+    width: 100%;
+    margin-top: 10px;
+  }
+  .modal {
+    padding: 20px;
+    width: 90%;
+  }
+  .modal-actions {
+    flex-direction: column;
+  }
+}
 </style>

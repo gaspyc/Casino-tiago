@@ -129,4 +129,23 @@ onMounted(() => {
   border-radius: 8px;
   font-weight: bold;
 }
+
+@media (max-width: 768px) {
+  .lobby-container {
+    padding: 15px;
+  }
+  .header {
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .tables-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  .table-card {
+    padding: 20px;
+  }
+}
 </style>

@@ -302,11 +302,9 @@ const getSeatStyle = (index, total) => {
 /* Poker Table Surface */
 .poker-table-wrapper {
   position: relative;
-  width: 900px;
+  width: 100%;
+  max-width: 900px;
   height: 500px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   margin-bottom: 50px;
 }
 
@@ -320,7 +318,12 @@ const getSeatStyle = (index, total) => {
   display: flex;
   justify-content: center;
   align-items: center;
-  position: relative;
+  
+  /* Absolute centering to allow scale transform without layout shifts */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .center-area {
@@ -328,6 +331,7 @@ const getSeatStyle = (index, total) => {
   flex-direction: column;
   align-items: center;
   gap: 15px;
+  z-index: 5;
 }
 
 .pot-display {
@@ -500,5 +504,51 @@ const getSeatStyle = (index, total) => {
 }
 .bet-slider input[type=range] {
   flex: 1;
+}
+
+/* --- Mobile Responsiveness --- */
+@media (max-width: 900px) {
+  .mp-poker {
+    padding: 10px;
+    overflow-x: hidden;
+  }
+  .poker-table-wrapper {
+    height: 350px;
+    margin-bottom: 20px;
+  }
+  .poker-table {
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+}
+
+@media (max-width: 600px) {
+  .header-row {
+    flex-direction: column;
+    padding: 10px;
+    gap: 10px;
+    align-items: stretch;
+    text-align: center;
+  }
+  .poker-table-wrapper {
+    height: 250px;
+  }
+  .poker-table {
+    transform: translate(-50%, -50%) scale(0.42);
+  }
+  .actions-panel {
+    min-width: 100%;
+    padding: 15px;
+  }
+  .action-buttons {
+    flex-wrap: wrap;
+  }
+  .action-buttons button {
+    flex: 1 1 45%;
+    font-size: 0.9rem;
+    padding: 10px;
+  }
+  .buy-in-controls {
+    flex-wrap: wrap;
+  }
 }
 </style>

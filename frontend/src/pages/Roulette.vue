@@ -276,4 +276,46 @@ const spinWheel = async () => {
   margin-top: 16px;
   font-size: 0.9rem;
 }
+
+@media (max-width: 900px) {
+  .roulette-page {
+    padding: 10px;
+  }
+  
+  .header-row {
+    margin-bottom: 10px;
+    padding: 10px;
+  }
+  
+  .main-layout {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .wheel-panel {
+    min-height: auto;
+    padding: 10px;
+  }
+  
+  .wheel-container {
+    width: 180px;
+    height: 180px;
+    margin-bottom: 10px;
+  }
+  
+  .result-number {
+    width: 50px;
+    height: 50px;
+    font-size: 2rem;
+  }
+  
+  .btn-spin {
+    padding: 10px 16px;
+    font-size: 1rem;
+  }
+  
+  .board-panel {
+    gap: 10px;
+  }
+}
 </style>
