@@ -1,4 +1,5 @@
 import axios from 'axios';
+// Fuerza un nuevo commit para que Coolify reconstruya la imagen con las nuevas variables de entorno
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8001/api/v1',
