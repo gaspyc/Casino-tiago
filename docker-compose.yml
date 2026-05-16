@@ -41,7 +41,7 @@ services:
     container_name: casino_frontend
     restart: always
     ports:
-      - "5173:5173"
+      - "5174:5173"
     volumes:
       # Montamos el código local para hot-reload
       - ./frontend:/app
