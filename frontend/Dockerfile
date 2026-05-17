@@ -3,11 +3,11 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copiamos solo el package.json para que instale los binarios nativos correctos de Linux
-COPY package.json ./
+# Copiamos los manifests para que Docker instale los binarios nativos correctos de Linux
+COPY package*.json ./
 
-# Instalamos las dependencias desde cero
-RUN npm install
+# Instalamos las dependencias desde cero y de forma reproducible
+RUN npm ci
 
 # Exponer el puerto por defecto de Vite
 EXPOSE 5173
