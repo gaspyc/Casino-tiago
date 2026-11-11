@@ -4,6 +4,7 @@ from app.modules.games.blackjack.multiplayer_router import router as blackjack_m
 from app.modules.games.blackjack.router import router as blackjack_router
 from app.modules.games.crash.router import router as crash_router
 from app.modules.games.poker.multiplayer_router import router as poker_multiplayer_router
+from app.modules.games.plinko.router import router as plinko_router
 from app.modules.games.roulette.router import router as roulette_router
 from app.modules.games.slots.router import router as slots_router
 
@@ -18,6 +19,7 @@ async def list_games():
         {"id": "blackjack", "name": "Blackjack", "category": "Cards"},
         {"id": "poker", "name": "Poker", "category": "Cards"},
         {"id": "crash", "name": "Crash", "category": "Arcade"},
+        {"id": "plinko", "name": "Plinko", "category": "Arcade"},
     ]
 
 
@@ -27,3 +29,4 @@ router.include_router(blackjack_router)
 router.include_router(blackjack_multiplayer_router)
 router.include_router(poker_multiplayer_router)
 router.include_router(crash_router)
+router.include_router(plinko_router)

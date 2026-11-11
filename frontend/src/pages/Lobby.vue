@@ -31,6 +31,13 @@
           <div class="play-btn">Jugar Ahora</div>
         </div>
 
+        <div class="glass-panel game-card" style="border-top-color: #22c55e;" @click="router.push('/plinko')">
+          <div class="game-icon">PL</div>
+          <h3>Plinko</h3>
+          <p>Elige riesgo, filas y deja caer la bola para buscar grandes multiplicadores.</p>
+          <div class="play-btn" style="color: #22c55e;">Jugar Plinko</div>
+        </div>
+
         <div class="glass-panel game-card" @click="router.push('/blackjack')">
           <div class="game-icon">🃏</div>
           <h3>Blackjack (21)</h3>
