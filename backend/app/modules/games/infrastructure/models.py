@@ -66,6 +66,11 @@ class CrashGameSession(Base):
     id = Column(Integer, primary_key=True, index=True)
     status = Column(String, default="BETTING", nullable=False) # BETTING, IN_PROGRESS, CRASHED
     crash_point = Column(Numeric(10, 2), nullable=False) # The multiplier where it crashes
+    # Provably fair: el hash se publica antes de las apuestas y el seed se revela al final
+    server_seed = Column(String, nullable=True)
+    server_seed_hash = Column(String, nullable=True)
+    client_seed = Column(String, nullable=True)
+    nonce = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

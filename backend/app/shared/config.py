@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     POSTGRES_PORT: str = "5433"
     POSTGRES_DB: str = "casino_db"
     
+    # Redis: coordina el juego de Crash entre procesos
+    REDIS_URL: str = Field(
+        default="redis://localhost:6379/0",
+        validation_alias=AliasChoices("REDIS_URL", "redis_url"),
+    )
+
     # JWT Auth
     SECRET_KEY: str = "SUPER_SECRET_KEY_CHANGE_ME_IN_PRODUCTION"
     ALGORITHM: str = "HS256"

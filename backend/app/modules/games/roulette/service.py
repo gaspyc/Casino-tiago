@@ -1,4 +1,3 @@
-import random
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -6,11 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.games.infrastructure.models import Bet
 from app.modules.games.roulette.schemas import BetResultDetail, GameResultResponse, RouletteBetCreate
-from app.modules.users.infrastructure.models import User
 from app.modules.wallet.infrastructure.models import Transaction
-
-ROULETTE_NUMBERS = list(range(37))
-RED_NUMBERS = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
+from app.modules.wallet.application.balance import credit, debit
+from app.modules.games.roulette.paytable import (
+    ROULETTE_NUMBERS,
+    calcular_multiplicador,
+    color_de,
+    paridad_de,
+)
+from app.modules.games.shared import rng
 
 
 async def play_roulette_service(
@@ -18,70 +21,25 @@ async def play_roulette_service(
     user_id: int,
     bet_data: RouletteBetCreate,
 ) -> GameResultResponse:
-    user = await db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
     total_bet_amount = sum(item.bet_amount for item in bet_data.bets)
 
-    if user.balance < total_bet_amount:
+    if not await debit(db, user_id, total_bet_amount):
         raise HTTPException(status_code=400, detail="Saldo insuficiente para el total de la apuesta")
 
-    user.balance -= total_bet_amount
-
-    winning_number = random.choice(ROULETTE_NUMBERS)
-    winning_color = "green" if winning_number == 0 else ("red" if winning_number in RED_NUMBERS else "black")
-    winning_parity = "none" if winning_number == 0 else ("even" if winning_number % 2 == 0 else "odd")
+    winning_number = rng.choice(ROULETTE_NUMBERS)
+    winning_color = color_de(winning_number)
+    winning_parity = paridad_de(winning_number)
 
     total_payout = Decimal("0.0")
     bet_details = []
 
     for item in bet_data.bets:
-        is_win = False
-        payout_multiplier = Decimal("0.0")
+        payout_multiplier = calcular_multiplicador(
+            item.bet_type, item.bet_value, winning_number
+        )
+        is_win = payout_multiplier > 0
 
-        if item.bet_type == "number":
-            if str(winning_number) == item.bet_value:
-                is_win = True
-                payout_multiplier = Decimal("36.0")
-        elif item.bet_type == "color":
-            if winning_color == item.bet_value.lower():
-                is_win = True
-                payout_multiplier = Decimal("2.0")
-        elif item.bet_type == "parity":
-            if winning_parity == item.bet_value.lower():
-                is_win = True
-                payout_multiplier = Decimal("2.0")
-        elif item.bet_type == "split":
-            numbers = item.bet_value.split(",")
-            if str(winning_number) in numbers:
-                is_win = True
-                payout_multiplier = Decimal("18.0")
-        elif item.bet_type == "corner":
-            numbers = item.bet_value.split(",")
-            if str(winning_number) in numbers:
-                is_win = True
-                payout_multiplier = Decimal("9.0")
-        elif item.bet_type == "dozen":
-            if winning_number != 0:
-                dozen = (winning_number - 1) // 12 + 1
-                if str(dozen) == item.bet_value:
-                    is_win = True
-                    payout_multiplier = Decimal("3.0")
-        elif item.bet_type == "column":
-            if winning_number != 0:
-                col = (winning_number - 1) % 3 + 1
-                if str(col) == item.bet_value:
-                    is_win = True
-                    payout_multiplier = Decimal("3.0")
-        elif item.bet_type == "half":
-            if winning_number != 0:
-                half = "low" if winning_number <= 18 else "high"
-                if half == item.bet_value.lower():
-                    is_win = True
-                    payout_multiplier = Decimal("2.0")
-
-        payout = item.bet_amount * payout_multiplier if is_win else Decimal("0.0")
+        payout = item.bet_amount * payout_multiplier
         total_payout += payout
 
         bet_details.append(
@@ -95,7 +53,7 @@ async def play_roulette_service(
         )
 
     if total_payout > 0:
-        user.balance += total_payout
+        await credit(db, user_id, total_payout)
 
     result_data = {
         "winning_number": winning_number,

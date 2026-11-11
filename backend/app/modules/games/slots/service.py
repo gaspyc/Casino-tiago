@@ -1,4 +1,3 @@
-import random
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -6,10 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.games.infrastructure.models import Bet
 from app.modules.games.slots.schemas import SlotBetCreate, SlotResultResponse
-from app.modules.users.infrastructure.models import User
 from app.modules.wallet.infrastructure.models import Transaction
-
-SLOT_SYMBOLS = ["🍒", "🍋", "🍊", "🍇", "🔔", "💎", "7️⃣"]
+from app.modules.wallet.application.balance import credit, debit
+from app.modules.games.slots.paytable import calcular_multiplicador, girar
 
 
 async def play_slots_service(
@@ -17,44 +15,16 @@ async def play_slots_service(
     user_id: int,
     bet_data: SlotBetCreate,
 ) -> SlotResultResponse:
-    user = await db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    if user.balance < bet_data.bet_amount:
+    if not await debit(db, user_id, bet_data.bet_amount):
         raise HTTPException(status_code=400, detail="Saldo insuficiente")
 
-    user.balance -= bet_data.bet_amount
-
-    result_line = [random.choice(SLOT_SYMBOLS) for _ in range(3)]
-
-    payout_multiplier = Decimal("0.0")
-
-    if result_line[0] == result_line[1] == result_line[2]:
-        symbol = result_line[0]
-        if symbol == "7️⃣":
-            payout_multiplier = Decimal("100.0")
-        elif symbol == "💎":
-            payout_multiplier = Decimal("50.0")
-        elif symbol == "🔔":
-            payout_multiplier = Decimal("30.0")
-        elif symbol == "🍇":
-            payout_multiplier = Decimal("20.0")
-        elif symbol == "🍊":
-            payout_multiplier = Decimal("15.0")
-        elif symbol == "🍋":
-            payout_multiplier = Decimal("10.0")
-        elif symbol == "🍒":
-            payout_multiplier = Decimal("5.0")
-    else:
-        cherries = result_line.count("🍒")
-        if cherries >= 2:
-            payout_multiplier = Decimal("2.0")
+    result_line = girar()
+    payout_multiplier = calcular_multiplicador(result_line)
 
     total_payout = bet_data.bet_amount * payout_multiplier
 
     if total_payout > 0:
-        user.balance += total_payout
+        await credit(db, user_id, total_payout)
 
     result_data = {"line": result_line}
 

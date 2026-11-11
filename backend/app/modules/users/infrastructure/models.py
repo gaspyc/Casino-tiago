@@ -1,9 +1,12 @@
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, Boolean
+from sqlalchemy import CheckConstraint, Column, Integer, String, Numeric, DateTime, Boolean
 from sqlalchemy.sql import func
 from app.shared.database import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("balance >= 0", name="ck_users_balance_no_negativo"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)

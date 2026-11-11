@@ -13,12 +13,14 @@ from app.modules.wallet.infrastructure.models import Transaction
 from app.modules.games.infrastructure.models import Bet
 
 from app.modules.games.crash.service import crash_manager
+from app.shared.redis import cerrar_redis
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Ya no usamos Base.metadata.create_all, Alembic maneja las migraciones.
     crash_manager.start_loop()
     yield
+    await cerrar_redis()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

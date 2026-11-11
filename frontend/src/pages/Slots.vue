@@ -46,14 +46,15 @@
       
       <!-- Tabla de pagos estática -->
       <div class="paytable">
-        <div class="pay-item"><span>7️⃣ 7️⃣ 7️⃣</span> <span>100x</span></div>
-        <div class="pay-item"><span>💎 💎 💎</span> <span>50x</span></div>
-        <div class="pay-item"><span>🔔 🔔 🔔</span> <span>30x</span></div>
-        <div class="pay-item"><span>🍇 🍇 🍇</span> <span>20x</span></div>
-        <div class="pay-item"><span>🍊 🍊 🍊</span> <span>15x</span></div>
-        <div class="pay-item"><span>🍋 🍋 🍋</span> <span>10x</span></div>
+        <div class="pay-item"><span>7️⃣ 7️⃣ 7️⃣</span> <span>40x</span></div>
+        <div class="pay-item"><span>💎 💎 💎</span> <span>25x</span></div>
+        <div class="pay-item"><span>🔔 🔔 🔔</span> <span>15x</span></div>
+        <div class="pay-item"><span>🍇 🍇 🍇</span> <span>10x</span></div>
+        <div class="pay-item"><span>🍊 🍊 🍊</span> <span>8x</span></div>
+        <div class="pay-item"><span>🍋 🍋 🍋</span> <span>7x</span></div>
         <div class="pay-item"><span>🍒 🍒 🍒</span> <span>5x</span></div>
-        <div class="pay-item"><span>🍒 🍒 ❌</span> <span>2x</span></div>
+        <div class="pay-item"><span>Dos iguales</span> <span>1x</span></div>
+        <div class="pay-item"><span>Una cereza</span> <span>1x</span></div>
       </div>
     </div>
   </div>

@@ -1,11 +1,11 @@
-import random
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException
 from app.modules.games.blackjack.schemas import BlackjackAction, BlackjackBetCreate, BlackjackResponse
 from app.modules.games.infrastructure.models import BlackjackGame
-from app.modules.users.infrastructure.models import User
 from app.modules.wallet.infrastructure.models import Transaction
+from app.modules.wallet.application.balance import credit, debit
+from app.modules.games.shared import rng
 
 SUITS = ["♠", "♥", "♦", "♣"]
 RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
@@ -60,20 +60,14 @@ def generate_response(game: BlackjackGame, total_payout: Decimal = Decimal("0.0"
     )
 
 async def start_blackjack_service(db: AsyncSession, user_id: int, bet_data: BlackjackBetCreate) -> BlackjackResponse:
-    user = await db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-        
-    if user.balance < bet_data.bet_amount:
+    if not await debit(db, user_id, bet_data.bet_amount):
         raise HTTPException(status_code=400, detail="Saldo insuficiente")
-        
-    user.balance -= bet_data.bet_amount
     
     tx_bet = Transaction(user_id=user_id, amount=bet_data.bet_amount, transaction_type="BET", description="Blackjack")
     db.add(tx_bet)
     
     deck = get_deck()
-    random.shuffle(deck)
+    rng.shuffle(deck)
     
     player_hand = [deck.pop(), deck.pop()]
     dealer_hand = [deck.pop(), deck.pop()]
@@ -93,7 +87,7 @@ async def start_blackjack_service(db: AsyncSession, user_id: int, bet_data: Blac
             total_payout = bet_data.bet_amount * Decimal("2.5")
             
     if status != "ACTIVE" and total_payout > 0:
-        user.balance += total_payout
+        await credit(db, user_id, total_payout)
         tx_win = Transaction(user_id=user_id, amount=total_payout, transaction_type="PAYOUT", description="Blackjack")
         db.add(tx_win)
             
@@ -124,11 +118,9 @@ async def double_blackjack_service(db: AsyncSession, user_id: int, action: Black
     if game.is_split or len(game.player_hand) > 2:
         raise HTTPException(status_code=400, detail="No puedes doblar esta mano")
         
-    user = await db.get(User, user_id)
-    if user.balance < game.bet_amount:
+    if not await debit(db, user_id, game.bet_amount):
         raise HTTPException(status_code=400, detail="Saldo insuficiente para doblar")
         
-    user.balance -= game.bet_amount
     game.bet_amount += game.bet_amount
     
     tx_bet = Transaction(user_id=user_id, amount=game.bet_amount / 2, transaction_type="BET", description="Blackjack Double")
@@ -166,11 +158,9 @@ async def split_blackjack_service(db: AsyncSession, user_id: int, action: Blackj
     if rank1 != rank2 and not (rank1 in ["10","J","Q","K"] and rank2 in ["10","J","Q","K"]):
         raise HTTPException(status_code=400, detail="Las cartas deben tener el mismo valor")
         
-    user = await db.get(User, user_id)
-    if user.balance < game.bet_amount:
+    if not await debit(db, user_id, game.bet_amount):
         raise HTTPException(status_code=400, detail="Saldo insuficiente para dividir")
         
-    user.balance -= game.bet_amount
     tx_bet = Transaction(user_id=user_id, amount=game.bet_amount, transaction_type="BET", description="Blackjack Split")
     db.add(tx_bet)
     
@@ -246,7 +236,6 @@ async def stand_blackjack_service(db: AsyncSession, user_id: int, action: Blackj
     game.dealer_hand = dealer_hand
     
     total_payout = Decimal("0.0")
-    user = await db.get(User, user_id)
     
     if game.is_split:
         score1 = calculate_score(game.player_hand[0])
@@ -286,7 +275,7 @@ async def stand_blackjack_service(db: AsyncSession, user_id: int, action: Blackj
             game.status = "DEALER_WON"
             
     if total_payout > 0:
-        user.balance += total_payout
+        await credit(db, user_id, total_payout)
         tx_win = Transaction(user_id=user_id, amount=total_payout, transaction_type="PAYOUT", description="Blackjack")
         db.add(tx_win)
         

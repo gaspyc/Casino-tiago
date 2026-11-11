@@ -3,11 +3,11 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copiamos solo el package.json para que instale los binarios nativos correctos de Linux
-COPY package.json ./
+# Copiamos package.json y package-lock.json para instalar dependencias con versiones exactas
+COPY package*.json ./
 
-# Instalamos las dependencias desde cero
-RUN npm install
+# Instalamos las dependencias
+RUN npm ci --verbose
 
 # Exponer el puerto por defecto de Vite
 EXPOSE 5173

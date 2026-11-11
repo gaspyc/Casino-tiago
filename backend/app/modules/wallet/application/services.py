@@ -3,14 +3,11 @@ from sqlalchemy import select
 from fastapi import HTTPException
 from app.modules.wallet.domain.entities import TransactionCreate
 from app.modules.wallet.infrastructure.models import Transaction
-from app.modules.users.infrastructure.models import User
+from app.modules.wallet.application.balance import credit, debit
 
 async def deposit_funds_service(db: AsyncSession, user_id: int, data: TransactionCreate) -> Transaction:
-    user = await db.get(User, user_id)
-    if not user:
+    if not await credit(db, user_id, data.amount):
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    user.balance += data.amount
 
     new_transaction = Transaction(
         user_id=user_id,
@@ -25,14 +22,8 @@ async def deposit_funds_service(db: AsyncSession, user_id: int, data: Transactio
     return new_transaction
 
 async def withdraw_funds_service(db: AsyncSession, user_id: int, data: TransactionCreate) -> Transaction:
-    user = await db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    if user.balance < data.amount:
+    if not await debit(db, user_id, data.amount):
         raise HTTPException(status_code=400, detail="Saldo insuficiente en la billetera")
-
-    user.balance -= data.amount
 
     new_transaction = Transaction(
         user_id=user_id,

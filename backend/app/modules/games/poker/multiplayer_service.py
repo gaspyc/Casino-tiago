@@ -1,4 +1,3 @@
-import random
 from decimal import Decimal
 from typing import Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +7,9 @@ from app.modules.games.blackjack.service import get_deck # Reusamos la baraja es
 from app.modules.games.poker.evaluator import evaluate_hand, format_hand_name
 from app.modules.users.infrastructure.models import User
 from app.modules.wallet.infrastructure.models import Transaction
+from app.modules.wallet.application.balance import credit, debit
+from app.modules.games.shared.betting import parse_bet_amount
+from app.modules.games.shared import rng
 
 def default_poker_player(user_id: int, username: str) -> dict:
     return {
@@ -156,9 +158,8 @@ async def process_ws_poker_action(db: AsyncSession, table_id: int, user_id: int,
     if action == "join":
         if not player:
             user = await db.get(User, user_id)
-            buy_in = Decimal(str(action_data.get("buy_in", 1000)))
-            if user.balance >= buy_in:
-                user.balance -= buy_in
+            buy_in = parse_bet_amount(action_data.get("buy_in", 1000))
+            if buy_in is not None and await debit(db, user_id, buy_in):
                 tx = Transaction(user_id=user_id, amount=buy_in, transaction_type="BUY_IN", description="Poker Buy In")
                 db.add(tx)
                 
@@ -174,10 +175,11 @@ async def process_ws_poker_action(db: AsyncSession, table_id: int, user_id: int,
     elif action == "leave":
         if player:
             # Reembolsar balance a la wallet
-            user = await db.get(User, user_id)
-            user.balance += Decimal(str(player["balance_in_play"]))
-            tx = Transaction(user_id=user_id, amount=Decimal(str(player["balance_in_play"])), transaction_type="CASH_OUT", description="Poker Cash Out")
-            db.add(tx)
+            cash_out = Decimal(str(player["balance_in_play"]))
+            if cash_out > 0:
+                await credit(db, user_id, cash_out)
+                tx = Transaction(user_id=user_id, amount=cash_out, transaction_type="CASH_OUT", description="Poker Cash Out")
+                db.add(tx)
             
             players.remove(player)
             table.players_data = players
@@ -199,7 +201,7 @@ async def process_ws_poker_action(db: AsyncSession, table_id: int, user_id: int,
             table.community_cards = []
             table.pot = 0
             deck = get_deck()
-            random.shuffle(deck)
+            rng.shuffle(deck)
             table.deck = deck
             
             # Reset player states

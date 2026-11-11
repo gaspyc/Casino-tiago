@@ -1,4 +1,3 @@
-import random
 from decimal import Decimal
 from typing import Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +6,9 @@ from app.modules.games.blackjack.service import calculate_score, get_deck
 from sqlalchemy.orm.attributes import flag_modified
 from app.modules.users.infrastructure.models import User
 from app.modules.wallet.infrastructure.models import Transaction
+from app.modules.wallet.application.balance import credit, debit
+from app.modules.games.shared.betting import parse_bet_amount
+from app.modules.games.shared import rng
 
 def default_player(user_id: int, username: str) -> dict:
     return {
@@ -80,12 +82,10 @@ async def process_ws_action(db: AsyncSession, table_id: int, user_id: int, actio
                     p["hand"] = []
                     p["status"] = "WAITING"
             
-            bet_amount = Decimal(str(action_data.get("bet_amount", 0)))
-            if bet_amount > 0:
+            bet_amount = parse_bet_amount(action_data.get("bet_amount"))
+            if bet_amount is not None:
                 # Cobrar de la billetera
-                user = await db.get(User, user_id)
-                if user.balance >= bet_amount:
-                    user.balance -= bet_amount
+                if await debit(db, user_id, bet_amount):
                     tx = Transaction(user_id=user_id, amount=bet_amount, transaction_type="BET", description="Multiplayer Blackjack")
                     db.add(tx)
                     
@@ -105,7 +105,7 @@ async def process_ws_action(db: AsyncSession, table_id: int, user_id: int, actio
         if len(betting_players) > 0 and table.status == "BETTING":
             table.status = "PLAYING"
             deck = get_deck()
-            random.shuffle(deck)
+            rng.shuffle(deck)
             
             for p in players:
                 if p["bet"] > 0:
@@ -181,8 +181,7 @@ async def process_ws_action(db: AsyncSession, table_id: int, user_id: int, actio
                         
                 if payout > 0:
                     payout_dec = Decimal(str(payout))
-                    user = await db.get(User, p["user_id"])
-                    user.balance += payout_dec
+                    await credit(db, p["user_id"], payout_dec)
                     tx = Transaction(user_id=p["user_id"], amount=payout_dec, transaction_type="PAYOUT", description="Multiplayer Blackjack")
                     db.add(tx)
                 
