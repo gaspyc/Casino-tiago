@@ -86,3 +86,49 @@ def test_apuestas_que_no_existen_en_el_pano(bet_type, bet_value):
 )
 def test_normaliza_el_valor_de_la_apuesta(bet_type, bet_value, expected):
     assert _bet(bet_type, bet_value).bet_value == expected
+
+
+# ------------------- docenas, columnas y mitades -------------------
+# El paño las ofrecía desde el principio y el servicio las pagaba bien, pero el
+# schema las rechazaba con 422: cualquier giro que las incluyera fallaba entero.
+
+TIPOS_QUE_MANDA_EL_PANO = [
+    ("number", "17"),
+    ("color", "red"),
+    ("parity", "even"),
+    ("split", "1,2"),
+    ("corner", "1,2,4,5"),
+    ("dozen", "1"),
+    ("column", "2"),
+    ("half", "low"),
+]
+
+
+@pytest.mark.parametrize("bet_type, bet_value", TIPOS_QUE_MANDA_EL_PANO)
+def test_el_schema_acepta_todo_lo_que_ofrece_el_pano(bet_type, bet_value):
+    assert _bet(bet_type, bet_value).bet_value
+
+
+@pytest.mark.parametrize("bet_type", ["dozen", "column"])
+@pytest.mark.parametrize("bet_value", ["0", "4", "-1", "1,2", "primera", ""])
+def test_docenas_y_columnas_invalidas(bet_type, bet_value):
+    with pytest.raises(ValidationError):
+        _bet(bet_type, bet_value)
+
+
+@pytest.mark.parametrize("bet_value", ["baja", "1", "low,high", ""])
+def test_mitades_invalidas(bet_value):
+    with pytest.raises(ValidationError):
+        _bet("half", bet_value)
+
+
+@pytest.mark.parametrize(
+    "bet_type, bet_value, expected",
+    [
+        ("dozen", " 2 ", "2"),
+        ("column", " 3 ", "3"),
+        ("half", "HIGH", "high"),
+    ],
+)
+def test_normaliza_las_apuestas_externas(bet_type, bet_value, expected):
+    assert _bet(bet_type, bet_value).bet_value == expected

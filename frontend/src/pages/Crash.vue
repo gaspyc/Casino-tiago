@@ -48,6 +48,16 @@
             </li>
           </ul>
         </div>
+
+        <FairnessPanel
+          :server-seed-hash="gameState.server_seed_hash"
+          :client-seed="gameState.client_seed"
+          :nonce="gameState.nonce"
+          :server-seed="gameState.server_seed"
+          nonce-label="Ronda nº"
+          help-text="El hash se publica al abrir la ronda, antes de que nadie apueste. Cuando explota se revela el seed y podés rehacer la cuenta."
+          formula='crash = 0.99 / u,  u = HMAC_SHA256(server_seed, "client_seed:nonce")'
+        />
       </div>
 
       <!-- Derecha: Pantalla del Juego -->
@@ -87,6 +97,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import FairnessPanel from '../widgets/FairnessPanel.vue';
 
 const router = useRouter();
 const ws = ref(null);

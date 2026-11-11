@@ -27,7 +27,7 @@
         <div class="glass-panel game-card" @click="router.push('/slots')">
           <div class="game-icon">🎰</div>
           <h3>Tragamonedas</h3>
-          <p>La clásica máquina de 3 rodillos. ¡Busca el jackpot x100!</p>
+          <p>La clásica máquina de 3 rodillos. Paga en 2 de cada 3 tiradas.</p>
           <div class="play-btn">Jugar Ahora</div>
         </div>
 

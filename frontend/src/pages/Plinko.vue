@@ -55,6 +55,19 @@
         </div>
 
         <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+
+        <FairnessPanel
+          :server-seed-hash="semilla.server_seed_hash"
+          :client-seed="semilla.client_seed"
+          :nonce="semilla.nonce"
+          :server-seed="seedRevelado"
+          :can-rotate="true"
+          :rotating="rotando"
+          nonce-label="Bolas con esta semilla"
+          help-text="El hash se publica antes de la primera bola. Al rotar la semilla se revela el seed y podés rehacer el camino de cada bola que tiraste con ella."
+          formula='fila i = "R" si el byte i de HMAC_SHA256(server_seed, "client_seed:nonce") es impar'
+          @rotate="rotarSemilla"
+        />
       </aside>
 
       <main class="glass-panel board-panel">
@@ -91,6 +104,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router';
 import confetti from 'canvas-confetti';
 import api from '../shared/api';
+import FairnessPanel from '../widgets/FairnessPanel.vue';
 
 const router = useRouter();
 const balance = ref('0.00');
@@ -108,6 +122,11 @@ const currentBoard = ref(null);
 // isDropping se usaba en el template sin estar declarado, así que
 // :disabled="undefined" nunca deshabilitaba ningun control.
 const isDropping = ref(false);
+
+// Provably fair: el compromiso de la semilla vigente y el seed ya revelado.
+const semilla = ref({ server_seed_hash: null, client_seed: null, nonce: 0 });
+const seedRevelado = ref(null);
+const rotando = ref(false);
 
 const canvasRef = ref(null);
 let ctx = null;
@@ -184,6 +203,28 @@ const pegs = computed(() => {
 const renderedPegs = computed(() => currentBoard.value?.pegs || pegs.value);
 const renderedPegRadius = computed(() => currentBoard.value?.peg_radius || pegRadius);
 const renderedBallRadius = computed(() => currentBoard.value?.ball_radius || ballRadius);
+
+const cargarSemilla = async () => {
+  try {
+    const res = await api.get('/games/plinko/semilla');
+    semilla.value = res.data;
+  } catch {
+    // Si falla, el panel queda en guiones: no bloquea el juego.
+  }
+};
+
+const rotarSemilla = async () => {
+  rotando.value = true;
+  try {
+    const res = await api.post('/games/plinko/semilla/rotar', {});
+    seedRevelado.value = res.data.revelada.server_seed;
+    semilla.value = res.data.activa;
+  } catch (e) {
+    errorMsg.value = e.response?.data?.detail || 'No se pudo rotar la semilla';
+  } finally {
+    rotando.value = false;
+  }
+};
 
 const loadBalance = async () => {
   const res = await api.get('/wallet/balance');
@@ -316,6 +357,15 @@ const dropBall = async () => {
     });
 
     currentBoard.value = res.data.result_data.board || null;
+
+    // El compromiso de la jugada viene en la respuesta. El seed revelado que
+    // hubiera en pantalla es de la semilla anterior, así que se limpia.
+    semilla.value = {
+      server_seed_hash: res.data.result_data.server_seed_hash,
+      client_seed: res.data.result_data.client_seed,
+      nonce: res.data.result_data.nonce,
+    };
+    seedRevelado.value = null;
     
     if (res.data.result_data.visual_path) {
       chips.value.push({
@@ -365,6 +415,7 @@ watch(risk, () => {
 
 onMounted(() => {
   loadBalance();
+  cargarSemilla();
   ctx = canvasRef.value.getContext('2d');
   animationFrame = requestAnimationFrame(renderLoop);
 });

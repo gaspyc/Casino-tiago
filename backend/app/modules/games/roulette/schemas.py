@@ -58,7 +58,16 @@ def _format_numbers(numbers: FrozenSet[int]) -> str:
 
 class RouletteBetItem(BaseModel):
     bet_amount: Decimal = Field(..., gt=0, decimal_places=2)
-    bet_type: Literal["number", "color", "parity", "split", "corner"]
+    bet_type: Literal[
+        "number",
+        "color",
+        "parity",
+        "split",
+        "corner",
+        "dozen",
+        "column",
+        "half",
+    ]
     bet_value: str
 
     @model_validator(mode="after")
@@ -99,6 +108,17 @@ class RouletteBetItem(BaseModel):
             if numbers is None or numbers not in VALID_CORNERS:
                 raise ValueError("bet_value debe ser un corner de cuatro números contiguos")
             self.bet_value = _format_numbers(numbers)
+
+        elif self.bet_type in ("dozen", "column"):
+            if raw not in {"1", "2", "3"}:
+                raise ValueError("bet_value debe ser '1', '2' o '3'")
+            self.bet_value = raw
+
+        elif self.bet_type == "half":
+            mitad = raw.lower()
+            if mitad not in {"low", "high"}:
+                raise ValueError("bet_value debe ser 'low' o 'high'")
+            self.bet_value = mitad
 
         return self
 
