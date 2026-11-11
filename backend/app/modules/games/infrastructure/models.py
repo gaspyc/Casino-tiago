@@ -74,6 +74,27 @@ class CrashGameSession(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+class GameSeed(Base):
+    """Semilla provably fair de un jugador para un juego.
+
+    Mientras `revealed_at` es NULL la semilla está activa y sólo se publica su
+    hash; al rotarla se revela el seed y se crea otra, así el jugador puede
+    verificar todas las jugadas que hizo con la anterior.
+    """
+
+    __tablename__ = "game_seeds"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    game_id = Column(String, nullable=False)  # 'plinko', etc.
+    server_seed = Column(String, nullable=False)
+    server_seed_hash = Column(String, nullable=False)
+    client_seed = Column(String, nullable=False)
+    nonce = Column(Integer, default=0, nullable=False)
+    revealed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class CrashBet(Base):
     __tablename__ = "crash_bets"
 

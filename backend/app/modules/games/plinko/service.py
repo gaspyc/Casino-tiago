@@ -1,14 +1,26 @@
 import math
-import random
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import HTTPException
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import func
 
-from app.modules.games.infrastructure.models import Bet
+from app.modules.games.infrastructure.models import Bet, GameSeed
+from app.modules.games.plinko.fairness import (
+    derivar_camino,
+    generar_client_seed,
+    generar_server_seed,
+    hashear_seed,
+    slot_desde_camino,
+)
 from app.modules.games.plinko.schemas import PlinkoBetCreate, PlinkoResultResponse
-from app.modules.users.infrastructure.models import User
+from app.modules.games.shared import rng
+from app.modules.wallet.application.balance import credit, debit
 from app.modules.wallet.infrastructure.models import Transaction
+
+GAME_ID = "plinko"
 
 RISK_CONFIG = {
     "low": {"alpha": 0.28, "floor": 0.45, "cap": 16.0},
@@ -107,96 +119,17 @@ def build_board_map(rows: int) -> dict:
     }
 
 
-def simulate_plinko_drop(rows: int) -> dict:
-    peg_r = PEG_RADIUS
-    ball_r = BALL_RADIUS
+# La simulación física que decidía el slot se eliminó: su distribución no era
+# binomial (el clamp de los bordes acumulaba masa en los slots de mayor
+# multiplicador) y el RTP real llegaba al 177% en riesgo alto. Ahora el camino
+# sale del seed y la física quedó solamente para la animación.
+def construir_tiro(rows: int, camino: list) -> dict:
+    """Arma la animación para un camino ya decidido por el seed."""
+    if len(camino) != rows:
+        raise ValueError("El camino no coincide con la cantidad de filas")
+
     col_gap = get_col_gap(rows)
-    min_x = get_slot_x(0, rows)
-    max_x = get_slot_x(rows, rows)
-
-    pegs = get_pegs(rows)
-
-    # FIX 1: spread de entrada más amplio para que la pelota no siempre
-    # nazca en el centro exacto. Antes era ±1.5 px, lo que favorecía
-    # demasiado los slots centrales (y por simetría, los extremos en
-    # tableros angostos).
-    x = BOARD_CENTER_X + random.uniform(-7, 7)
-    y = BALL_START_Y
-    vx = random.uniform(-0.8, 0.8)
-    vy = 1.0
-
-    frames = [{"x": round(x, 2), "y": round(y, 2)}]
-
-    max_steps = 1500
-    for _ in range(max_steps):
-        vy += 0.22
-        vx += (BOARD_CENTER_X - x) * 0.00025
-        x += vx
-        y += vy
-        vx *= 0.955
-
-        if x < min_x:
-            x = min_x
-            vx = abs(vx) * 0.24
-        elif x > max_x:
-            x = max_x
-            vx = -abs(vx) * 0.24
-
-        for px, py in pegs:
-            if abs(x - px) > 20 or abs(y - py) > 20:
-                continue
-
-            dx = x - px
-            dy = y - py
-            dist_sq = dx * dx + dy * dy
-            min_dist = peg_r + ball_r
-
-            if dist_sq < min_dist * min_dist:
-                dist = math.sqrt(dist_sq)
-                if dist == 0:
-                    dist = 0.1
-                nx = dx / dist
-                ny = dy / dist
-
-                overlap = min_dist - dist
-                x += nx * overlap
-                y += ny * overlap
-
-                dot = vx * nx + vy * ny
-                if dot < 0:
-                    vx -= 1.34 * dot * nx
-                    vy -= 1.34 * dot * ny
-
-                # FIX 2: ruido lateral más alto (±0.8 vs ±0.4 original).
-                # Con poco ruido la pelota tendía a seguir trayectorias
-                # casi deterministas que terminaban en los extremos.
-                vx += random.uniform(-0.38, 0.38)
-                vx = max(-2.7, min(2.7, vx))
-                vy = max(0.65, abs(vy) * 0.42 + 0.38)
-
-        frames.append({"x": round(x, 2), "y": round(y, 2)})
-
-        if y >= BOARD_FLOOR_Y - ball_r:
-            break
-
-    # FIX 3: usar el mismo col_gap unificado para calcular el slot final.
-    # Antes se usaba COL_GAP=46 fijo aquí pero get_col_gap() para los slots
-    # del board, lo que producía un desajuste entre donde caía la pelota
-    # visualmente y el slot que se registraba (y por ende el multiplicador).
-    actual_slot = round((x - BOARD_CENTER_X) / col_gap + rows / 2.0)
-    actual_slot = max(0, min(rows, int(actual_slot)))
-
-    return {
-        "path": [],
-        "slot_index": actual_slot,
-        "board": build_board_map(rows),
-        "visual_path": frames,
-    }
-
-
-def simulate_plinko_drop_balanced_path(rows: int) -> dict:
-    col_gap = get_col_gap(rows)
-    frames = [{"x": round(BOARD_CENTER_X + random.uniform(-4, 4), 2), "y": BALL_START_Y}]
+    frames = [{"x": round(BOARD_CENTER_X + rng.uniform(-4, 4), 2), "y": BALL_START_Y}]
     path: list[str] = []
     rights = 0
 
@@ -210,7 +143,7 @@ def simulate_plinko_drop_balanced_path(rows: int) -> dict:
             frames.append({"x": round(x, 2), "y": round(y, 2)})
 
     for row in range(rows):
-        direction = random.choice(["L", "R"])
+        direction = camino[row]
         path.append(direction)
 
         peg_x = BOARD_CENTER_X + (rights - row / 2.0) * col_gap
@@ -234,7 +167,7 @@ def simulate_plinko_drop_balanced_path(rows: int) -> dict:
             rights += 1
 
         exit_x = BOARD_CENTER_X + (rights - (row + 1) / 2.0) * col_gap
-        append_arc(exit_x + side * random.uniform(0.4, 1.2), peg_y + 18, 6, sag=1.5)
+        append_arc(exit_x + side * rng.uniform(0.4, 1.2), peg_y + 18, 6, sag=1.5)
 
     slot_index = rights
     append_arc(get_slot_x(slot_index, rows), BOARD_FLOOR_Y - BALL_RADIUS, 14)
@@ -247,45 +180,152 @@ def simulate_plinko_drop_balanced_path(rows: int) -> dict:
     }
 
 
+async def obtener_semilla_activa(db: AsyncSession, user_id: int) -> GameSeed:
+    """La semilla vigente del jugador, creándola en la primera jugada.
+
+    Mientras está activa sólo se publica su hash. El jugador la rota cuando
+    quiere verificar, y ahí se revela.
+    """
+    consulta = (
+        select(GameSeed)
+        .where(
+            GameSeed.user_id == user_id,
+            GameSeed.game_id == GAME_ID,
+            GameSeed.revealed_at.is_(None),
+        )
+        .limit(1)
+    )
+
+    semilla = await db.scalar(consulta)
+    if semilla is not None:
+        return semilla
+
+    semilla = GameSeed(
+        user_id=user_id,
+        game_id=GAME_ID,
+        server_seed=generar_server_seed(),
+        client_seed=generar_client_seed(),
+        nonce=0,
+    )
+    semilla.server_seed_hash = hashear_seed(semilla.server_seed)
+    db.add(semilla)
+
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Dos jugadas simultáneas en la primera bola: el índice único deja una
+        # sola semilla activa, así que la otra se queda con la que ganó.
+        await db.rollback()
+        semilla = await db.scalar(consulta)
+        if semilla is None:
+            raise
+
+        return semilla
+
+    await db.refresh(semilla)
+    return semilla
+
+
+async def rotar_semilla(
+    db: AsyncSession,
+    user_id: int,
+    client_seed: str = None,
+) -> dict:
+    """Revela la semilla vigente y deja una nueva activa.
+
+    Con el seed revelado el jugador rehace el camino de todas las bolas que tiró
+    con esa semilla, nonce por nonce, y comprueba que el hash que vio desde el
+    principio es el de ese seed. El client seed de la nueva lo elige él, así el
+    operador no puede preparar el resultado de antemano.
+    """
+    anterior = await obtener_semilla_activa(db, user_id)
+    anterior.revealed_at = func.now()
+
+    nueva = GameSeed(
+        user_id=user_id,
+        game_id=GAME_ID,
+        server_seed=generar_server_seed(),
+        client_seed=client_seed or generar_client_seed(),
+        nonce=0,
+    )
+    nueva.server_seed_hash = hashear_seed(nueva.server_seed)
+    db.add(nueva)
+
+    await db.commit()
+    await db.refresh(anterior)
+    await db.refresh(nueva)
+
+    return {
+        "revelada": {
+            "server_seed": anterior.server_seed,
+            "server_seed_hash": anterior.server_seed_hash,
+            "client_seed": anterior.client_seed,
+            "jugadas": anterior.nonce,
+        },
+        "activa": describir_semilla(nueva),
+    }
+
+
+def describir_semilla(semilla: GameSeed) -> dict:
+    """Lo único que se publica de una semilla activa: su compromiso."""
+    return {
+        "server_seed_hash": semilla.server_seed_hash,
+        "client_seed": semilla.client_seed,
+        "nonce": semilla.nonce,
+    }
+
+
 async def play_plinko_service(
     db: AsyncSession,
     user_id: int,
     bet_data: PlinkoBetCreate,
 ) -> PlinkoResultResponse:
-    user = await db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    semilla = await obtener_semilla_activa(db, user_id)
 
-    if user.balance < bet_data.bet_amount:
+    if not await debit(db, user_id, bet_data.bet_amount):
         raise HTTPException(status_code=400, detail="Saldo insuficiente")
 
-    user.balance -= bet_data.bet_amount
+    # El nonce se incrementa en la base: dos bolas simultáneas no pueden caer en
+    # el mismo, que daría el mismo camino y rompería la verificación.
+    nonce = await db.scalar(
+        update(GameSeed)
+        .where(GameSeed.id == semilla.id)
+        .values(nonce=GameSeed.nonce + 1)
+        .returning(GameSeed.nonce)
+        .execution_options(synchronize_session=False)
+    )
 
-    drop = simulate_plinko_drop(bet_data.rows)
-    path = drop["path"]
-    slot_index = drop["slot_index"]
+    camino = derivar_camino(
+        semilla.server_seed, semilla.client_seed, nonce, bet_data.rows
+    )
+    slot_index = slot_desde_camino(camino)
+    tiro = construir_tiro(bet_data.rows, camino)
+
     multipliers = build_multipliers(bet_data.rows, bet_data.risk)
     multiplier = multipliers[slot_index]
     total_payout = _round_money(bet_data.bet_amount * multiplier)
-    visual_path = drop["visual_path"]
 
     if total_payout > 0:
-        user.balance += total_payout
+        await credit(db, user_id, total_payout)
 
     result_data = {
         "risk": bet_data.risk,
         "rows": bet_data.rows,
-        "board": drop["board"],
-        "path": path,
-        "visual_path": visual_path,
+        "board": tiro["board"],
+        "path": tiro["path"],
+        "visual_path": tiro["visual_path"],
         "slot_index": slot_index,
         "multiplier": str(multiplier),
         "multipliers": [str(item) for item in multipliers],
+        # Para verificar: el hash ya estaba publicado antes de esta jugada.
+        "server_seed_hash": semilla.server_seed_hash,
+        "client_seed": semilla.client_seed,
+        "nonce": nonce,
     }
 
     bet_record = Bet(
         user_id=user_id,
-        game_id="plinko",
+        game_id=GAME_ID,
         bet_amount=bet_data.bet_amount,
         payout=total_payout,
         result_data=result_data,
@@ -314,7 +354,7 @@ async def play_plinko_service(
     await db.commit()
 
     return PlinkoResultResponse(
-        game_id="plinko",
+        game_id=GAME_ID,
         bet_amount=bet_data.bet_amount,
         total_payout=total_payout,
         net_profit=total_payout - bet_data.bet_amount,

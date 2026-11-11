@@ -27,7 +27,17 @@ bloque de Bitcoin. Es el paso siguiente, no está hecho acá.
 import hashlib
 import hmac
 import math
-import secrets
+
+from app.modules.games.shared.semillas import generar_server_seed, hashear_seed
+
+__all__ = [
+    "CLIENT_SEED_INICIAL",
+    "MAX_CRASH_POINT",
+    "PROBABILIDAD_DE_PAGO",
+    "calcular_crash_point",
+    "generar_server_seed",
+    "hashear_seed",
+]
 
 # Techo del multiplicador. No afecta la ventaja de la casa: el juego termina ahí,
 # así que tampoco se puede cobrar por encima de este valor.
@@ -40,16 +50,6 @@ PROBABILIDAD_DE_PAGO = 0.99
 CLIENT_SEED_INICIAL = "casino-crash-ronda-inicial"
 
 _BITS = 52
-
-
-def generar_server_seed() -> str:
-    """Seed nuevo de 32 bytes del CSPRNG del sistema."""
-    return secrets.token_hex(32)
-
-
-def hashear_seed(server_seed: str) -> str:
-    """El compromiso que se publica antes de las apuestas."""
-    return hashlib.sha256(server_seed.encode()).hexdigest()
 
 
 def calcular_crash_point(server_seed: str, client_seed: str, nonce: int) -> float:

@@ -25,11 +25,11 @@
 
         <label class="field">
           <span>Filas: {{ rows }}</span>
-          <input type="range" v-model.number="rows" min="8" max="16" step="1" :disabled="isDropping" />
+          <input type="range" v-model.number="rows" min="8" max="16" step="1" :disabled="geometriaBloqueada" />
         </label>
 
         <div class="quick-rows">
-          <button v-for="item in [8, 10, 12, 14, 16]" :key="item" @click="rows = item" :class="{ active: rows === item }" :disabled="isDropping">
+          <button v-for="item in [8, 10, 12, 14, 16]" :key="item" @click="rows = item" :class="{ active: rows === item }" :disabled="geometriaBloqueada">
             {{ item }}
           </button>
         </div>
@@ -105,6 +105,9 @@ const errorMsg = ref('');
 const lastResult = ref(null);
 const lastSlot = ref(null);
 const currentBoard = ref(null);
+// isDropping se usaba en el template sin estar declarado, así que
+// :disabled="undefined" nunca deshabilitaba ningun control.
+const isDropping = ref(false);
 
 const canvasRef = ref(null);
 let ctx = null;
@@ -128,6 +131,10 @@ const ballRadius = 9;
 const getColGap = (rowCount) => BOARD_WIDTH / (rowCount + 2);
 
 const hasActiveDrops = computed(() => chips.value.length > 0);
+
+// Las filas definen la geometría del tablero: no se pueden cambiar
+// mientras hay una bola cayendo, porque su camino es de otro tablero.
+const geometriaBloqueada = computed(() => isDropping.value || hasActiveDrops.value);
 
 const riskConfig = {
   low: { alpha: 0.28, floor: 0.45, cap: 16 },
@@ -299,6 +306,7 @@ const dropBall = async () => {
 
   errorMsg.value = '';
   balance.value = (parseFloat(balance.value) - Number(betAmount.value)).toFixed(2);
+  isDropping.value = true;
 
   try {
     const res = await api.post('/games/plinko/drop', {
@@ -337,13 +345,22 @@ const dropBall = async () => {
     errorMsg.value = e.response?.data?.detail || e.message || 'Error al jugar';
     await loadBalance();
     stopAuto();
+  } finally {
+    isDropping.value = false;
   }
 };
 
-watch([rows, risk], () => {
-  if (hasActiveDrops.value) return;
+// Antes este watch se salía temprano si había bolas en vuelo, y ahí estaba el
+// bug: currentBoard se quedaba con la geometría de las filas anteriores, los
+// pines se dibujaban con ese espaciado y los slots con el nuevo.
+watch(rows, () => {
   lastSlot.value = null;
   currentBoard.value = null;
+});
+
+// El riesgo no toca la geometría, sólo los multiplicadores de la próxima bola.
+watch(risk, () => {
+  lastSlot.value = null;
 });
 
 onMounted(() => {

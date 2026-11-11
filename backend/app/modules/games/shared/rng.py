@@ -20,3 +20,8 @@ def choice(secuencia):
 def shuffle(items) -> None:
     """Mezcla la lista in place (Fisher-Yates sobre el CSPRNG)."""
     system_random.shuffle(items)
+
+
+def uniform(minimo: float, maximo: float) -> float:
+    """Float al azar en el rango. Se usa para el jitter visual de Plinko."""
+    return system_random.uniform(minimo, maximo)
