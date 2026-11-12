@@ -38,6 +38,13 @@
           <div class="play-btn" style="color: #22c55e;">Jugar Plinko</div>
         </div>
 
+        <div class="glass-panel game-card" style="border-top-color: #eab308;" @click="router.push('/truco')">
+          <div class="game-icon">🂡</div>
+          <h3>Truco</h3>
+          <p>Mano a mano contra la casa. Envido, truco y mentir todo lo que haga falta.</p>
+          <div class="play-btn" style="color: #eab308;">Jugar Truco</div>
+        </div>
+
         <div class="glass-panel game-card" @click="router.push('/blackjack')">
           <div class="game-icon">🃏</div>
           <h3>Blackjack (21)</h3>

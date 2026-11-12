@@ -9,6 +9,7 @@ import BlackjackMultiplayer from '../pages/BlackjackMultiplayer.vue';
 import PokerLobby from '../pages/PokerLobby.vue';
 import PokerMultiplayer from '../pages/PokerMultiplayer.vue';
 import Plinko from '../pages/Plinko.vue';
+import Truco from '../pages/Truco.vue';
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -17,6 +18,7 @@ const routes = [
   { path: '/roulette', component: Roulette, meta: { requiresAuth: true } },
   { path: '/slots', component: Slots, meta: { requiresAuth: true } },
   { path: '/plinko', component: Plinko, meta: { requiresAuth: true } },
+  { path: '/truco', component: Truco, meta: { requiresAuth: true } },
   { path: '/blackjack', component: Blackjack, meta: { requiresAuth: true } },
   { path: '/lobby-blackjack', component: BlackjackLobby, meta: { requiresAuth: true } },
   { path: '/blackjack-mp/:id', component: BlackjackMultiplayer, meta: { requiresAuth: true } },
