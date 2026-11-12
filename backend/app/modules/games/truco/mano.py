@@ -285,3 +285,26 @@ class Mano:
             estado["acciones"] = self.acciones(para)
 
         return estado
+
+
+def jugador_en_turno(mano: Mano):
+    """A quién le toca hablar: el que debe contestar un canto, o el del turno."""
+    if mano.terminada:
+        return None
+
+    if mano.pendiente is not None:
+        return _rival(mano.pendiente["de"])
+
+    return mano.turno
+
+
+def aplicar_accion(mano: Mano, jugador: int, accion: str) -> None:
+    """Aplica una de las acciones que devuelve `Mano.acciones`."""
+    if accion.startswith("jugar:"):
+        mano.jugar(jugador, accion.split(":", 1)[1])
+    elif accion in (QUIERO, NO_QUIERO):
+        mano.responder(jugador, accion)
+    elif accion == IRSE_AL_MAZO:
+        mano.irse_al_mazo(jugador)
+    else:
+        mano.cantar(jugador, accion)
