@@ -104,6 +104,38 @@ class TrucoPartida(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class TrucoMesa(Base):
+    """Una mesa de truco entre dos jugadores.
+
+    Mismo esquema que la partida contra la casa: se guardan las acciones y la
+    partida se reconstruye reproduciéndolas. El asiento 0 es el que creó la
+    mesa y el 1 el que se sentó.
+    """
+
+    __tablename__ = "truco_mesas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    jugador_0_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    jugador_1_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+
+    apuesta = Column(Numeric(10, 2), nullable=False)
+    con_flor = Column(Boolean, default=False, nullable=False)
+    estado = Column(String, default="esperando", nullable=False)  # esperando, jugando, terminada
+
+    server_seed = Column(String, nullable=False)
+    server_seed_hash = Column(String, nullable=False)
+    client_seed = Column(String, nullable=False)
+    nonce_base = Column(Integer, nullable=False)
+
+    acciones = Column(JSONB, default=list, nullable=False)
+    ganador = Column(Integer, nullable=True)
+    premio = Column(Numeric(10, 2), default=0.00, nullable=False)
+    comision = Column(Numeric(10, 2), default=0.00, nullable=False)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class GameSeed(Base):
     """Semilla provably fair de un jugador para un juego.
 
