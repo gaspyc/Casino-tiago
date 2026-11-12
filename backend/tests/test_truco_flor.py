@@ -267,3 +267,47 @@ def test_una_partida_con_flor_entre_bots_termina():
             partida.cerrar_mano()
 
         assert partida.ganador in (0, 1)
+
+
+def test_la_flor_no_dice_nada_sobre_la_fuerza_de_las_cartas():
+    """Se puede tener flor con 4, 5 y 6: el palo no habla del poder."""
+    from itertools import combinations
+
+    from app.modules.games.truco import bot
+    from app.modules.games.truco.cartas import MAZO, tiene_flor
+
+    manos = list(combinations(MAZO, 3))
+    con = [m for m in manos if tiene_flor(m)]
+    sin = [m for m in manos if not tiene_flor(m)]
+
+    media = lambda grupo: sum(bot.fuerza_de_mano(list(m)) for m in grupo) / len(grupo)
+
+    assert len(con) == 480  # 4.86% de las manos
+    assert abs(media(con) - media(sin)) < 0.001
+
+
+def test_la_flor_suma_confianza_para_el_truco_sin_tocar_las_cartas():
+    """Lo que cambia no son las cartas sino lo que cuesta perder."""
+    from app.modules.games.truco import bot
+
+    con_flor = _mano(["12E", "11E", "10E"], SIN_FLOR)
+    sin_flor = _mano(["12E", "11B", "10C"], SIN_FLOR)
+
+    assert bot.fuerza_de_mano(con_flor.cartas[0]) == bot.fuerza_de_mano(sin_flor.cartas[0])
+    assert bot._fuerza_en_juego(con_flor, 0) == pytest.approx(
+        bot._fuerza_en_juego(sin_flor, 0) + bot.BONIFICACION_POR_FLOR
+    )
+
+
+def test_con_la_flor_cobrada_se_anima_a_cantar_truco():
+    """Con esas mismas cartas, sin flor no cantaría."""
+    from app.modules.games.truco import bot
+
+    con_flor = _mano(["12E", "11E", "10E"], SIN_FLOR)
+    con_flor.cantar(0, "flor")  # el rival no tiene: se cobra y sigue la mano
+
+    sin_flor = _mano(["12E", "11B", "10C"], SIN_FLOR)
+
+    assert con_flor.puntos == [3, 0]
+    assert bot.decidir(con_flor, 0) == "truco"
+    assert bot.decidir(sin_flor, 0) != "truco"

@@ -34,6 +34,19 @@ SUBE_TRUCO = 0.78
 # Tantos de flor a partir de los cuales sube a contraflor en vez de aceptar.
 SUBE_LA_FLOR = 31
 
+# Cuánto se anima de más cuando tiene flor. No es que las cartas sean mejores:
+# medido sobre las 9880 manos posibles, la fuerza media de truco de una mano
+# con flor es 0.3962, idéntica a la del resto. Lo que cambia es el riesgo, que
+# los 3 puntos de la flor amortiguan: perder un truco cantado cuesta 2 y ya hay
+# 3 cobrados.
+#
+# Medido en 3700 partidas con flor contra el mismo bot sin la bonificación:
+# gana 51.9%, unas 2.3 sigmas sobre el azar. Es poco porque la flor sale en el
+# 4.86% de las manos. Entre 0.35 y 0.85 no hay diferencia medible, así que
+# queda en 0.35: con 0.60 o más cantaría truco siempre que tiene flor, y eso es
+# un tell que un humano lee en dos manos.
+BONIFICACION_POR_FLOR = 0.35
+
 # Cada tanto manda una mano fuerte como si fuera débil, para no ser legible.
 PROBABILIDAD_DE_MENTIR = 0.12
 
@@ -186,7 +199,11 @@ def _tantos(mano, jugador: int) -> int:
 
 
 def _fuerza_en_juego(mano, jugador: int) -> float:
-    """Fuerza de lo que le queda, ajustada por cómo viene la mano."""
+    """Con cuánta confianza juega el truco, no qué tan buenas son las cartas.
+
+    Mezcla la fuerza de lo que le queda con cómo viene la mano y con la flor,
+    que no mejora las cartas pero abarata perder.
+    """
     fuerza = fuerza_de_mano(mano.cartas[jugador])
 
     ganadas = sum(1 for resultado in mano.resultados if resultado == jugador)
@@ -194,4 +211,9 @@ def _fuerza_en_juego(mano, jugador: int) -> float:
         1 for resultado in mano.resultados if resultado not in (jugador, reglas.PARDA)
     )
 
-    return max(0.0, min(1.0, fuerza + 0.25 * ganadas - 0.25 * perdidas))
+    confianza = fuerza + 0.25 * ganadas - 0.25 * perdidas
+
+    if mano.tiene_flor(jugador):
+        confianza += BONIFICACION_POR_FLOR
+
+    return max(0.0, min(1.0, confianza))
