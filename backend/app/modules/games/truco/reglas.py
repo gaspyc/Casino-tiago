@@ -22,6 +22,8 @@ ESCALERA_ENVIDO = ("envido", "real_envido", "falta_envido")
 
 VALOR_FLOR = 3
 VALOR_CONTRAFLOR = 6
+ESCALERA_FLOR = ("flor", "contraflor", "contraflor_al_resto")
+VALOR_CANTO_FLOR = {"flor": VALOR_FLOR, "contraflor": VALOR_CONTRAFLOR}
 
 
 def ganador_de_la_mano(resultados, mano: str = GANA_MANO) -> str:
@@ -139,5 +141,43 @@ def gana_el_envido(puntos_jugador: int, puntos_rival: int, jugador_es_mano: bool
     """Con los mismos puntos gana el mano."""
     if puntos_jugador != puntos_rival:
         return puntos_jugador > puntos_rival
+
+    return jugador_es_mano
+
+
+def puntos_flor(cantos, querido: bool, puntos_a: int = 0, puntos_b: int = 0) -> int:
+    """Cuánto paga el canto de flor.
+
+    La flor sola vale 3 y no se puede rechazar: si el rival no tiene flor, se
+    cobra y listo. La contraflor querida la gana la flor más alta y vale 6, y
+    la contraflor al resto vale lo que falta para salir.
+
+    Como el truco y el envido, lo no querido paga lo que valía el canto
+    anterior: contraflor no querida paga los 3 de la flor.
+
+    La flor tiene variantes regionales; ésta es la que juega el casino y está
+    fijada por tests.
+    """
+    if not cantos:
+        return 0
+
+    for canto in cantos:
+        if canto not in ESCALERA_FLOR:
+            raise ValueError("'%s' no es un canto de flor" % canto)
+
+    if not querido:
+        anterior = cantos[-2] if len(cantos) > 1 else None
+        return VALOR_CANTO_FLOR[anterior] if anterior else VALOR_FLOR
+
+    if cantos[-1] == "contraflor_al_resto":
+        return puntos_de_la_falta(puntos_a, puntos_b)
+
+    return VALOR_CANTO_FLOR[cantos[-1]]
+
+
+def gana_la_flor(tantos_jugador: int, tantos_rival: int, jugador_es_mano: bool) -> bool:
+    """Con la misma flor gana el mano, igual que con el envido."""
+    if tantos_jugador != tantos_rival:
+        return tantos_jugador > tantos_rival
 
     return jugador_es_mano

@@ -11,7 +11,12 @@ midiendo, no suponiendo. `simular.py` hace esa medición.
 """
 
 from app.modules.games.truco import reglas
-from app.modules.games.truco.cartas import JERARQUIA, comparar, puntos_envido
+from app.modules.games.truco.cartas import (
+    JERARQUIA,
+    comparar,
+    puntos_envido,
+    tantos_de_flor,
+)
 from app.modules.games.truco.mano import IRSE_AL_MAZO, NO_QUIERO, QUIERO
 from app.modules.games.shared import rng
 
@@ -25,6 +30,9 @@ QUIERE_ENVIDO = {"envido": 23, "real_envido": 27, "falta_envido": 29}
 CANTA_TRUCO = 0.62
 QUIERE_TRUCO = 0.42
 SUBE_TRUCO = 0.78
+
+# Tantos de flor a partir de los cuales sube a contraflor en vez de aceptar.
+SUBE_LA_FLOR = 31
 
 # Cada tanto manda una mano fuerte como si fuera débil, para no ser legible.
 PROBABILIDAD_DE_MENTIR = 0.12
@@ -61,10 +69,34 @@ def decidir(mano, jugador: int):
 # ------------------------------ respuestas ------------------------------
 
 def _responder(mano, jugador: int, acciones: list):
-    if mano.pendiente["familia"] == "envido":
+    familia = mano.pendiente["familia"]
+
+    # Con flor en la mano no hay nada que decidir: se canta y mata el envido.
+    if "flor" in acciones:
+        return "flor"
+
+    if familia == "flor":
+        return _responder_flor(mano, jugador, acciones)
+
+    if familia == "envido":
         return _responder_envido(mano, jugador, acciones)
 
     return _responder_truco(mano, jugador, acciones)
+
+
+def _responder_flor(mano, jugador: int, acciones: list):
+    """Con una flor alta conviene subir; con una baja, que sean buenas."""
+    mios = tantos_de_flor(mano._cartas_repartidas(jugador))
+
+    if mios >= SUBE_LA_FLOR:
+        for canto in ("contraflor", "contraflor_al_resto"):
+            if canto in acciones:
+                return canto
+
+        if QUIERO in acciones:
+            return QUIERO
+
+    return QUIERO if QUIERO in acciones and mios >= 27 else NO_QUIERO
 
 
 def _responder_envido(mano, jugador: int, acciones: list):
@@ -91,6 +123,10 @@ def _responder_truco(mano, jugador: int, acciones: list):
 # ------------------------------ cantos ------------------------------
 
 def _buscar_canto(mano, jugador: int, acciones: list):
+    # La flor son tres puntos regalados: se canta siempre.
+    if "flor" in acciones:
+        return "flor"
+
     envido = [canto for canto in reglas.ESCALERA_ENVIDO if canto in acciones]
     if envido and _tantos(mano, jugador) >= CANTA_ENVIDO:
         return envido[0]

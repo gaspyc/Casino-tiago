@@ -63,6 +63,7 @@ def reconstruir(fila: TrucoPartida) -> Partida:
         fila.nonce_base,
         mano_inicial=JUGADOR,
         objetivo=PUNTOS_PARTIDA,
+        con_flor=bool(fila.con_flor),
     )
     partida.nueva_mano()
 
@@ -99,7 +100,9 @@ def _avanzar(partida: Partida, acciones: list) -> None:
         acciones.append({"jugador": CASA, "accion": accion})
 
 
-async def empezar_partida(db: AsyncSession, user_id: int, monto_crudo) -> dict:
+async def empezar_partida(
+    db: AsyncSession, user_id: int, monto_crudo, con_flor: bool = False
+) -> dict:
     if await partida_abierta(db, user_id) is not None:
         raise HTTPException(status_code=400, detail="Ya tenés una partida sin terminar")
 
@@ -127,6 +130,7 @@ async def empezar_partida(db: AsyncSession, user_id: int, monto_crudo) -> dict:
         server_seed_hash=hashear_seed(server_seed),
         client_seed=generar_client_seed(),
         nonce_base=0,
+        con_flor=con_flor,
         acciones=[],
     )
     db.add(fila)
@@ -230,6 +234,7 @@ def _respuesta(fila: TrucoPartida, partida: Partida) -> dict:
     estado["apuesta"] = str(fila.apuesta)
     estado["payout"] = str(fila.payout)
     estado["multiplicador"] = str(MULTIPLICADOR_DE_PAGO)
+    estado["con_flor"] = bool(fila.con_flor)
     estado["server_seed_hash"] = fila.server_seed_hash
     estado["client_seed"] = fila.client_seed
 

@@ -101,6 +101,6 @@ def tiene_flor(mano) -> bool:
     return len({palo_de(carta) for carta in mano}) == 1
 
 
-def puntos_flor(mano) -> int:
-    """La flor vale 20 más la suma de las tres cartas."""
+def tantos_de_flor(mano) -> int:
+    """Los tantos de una flor: 20 más la suma de las tres cartas."""
     return 20 + sum(valor_envido(carta) for carta in mano)

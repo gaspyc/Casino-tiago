@@ -95,6 +95,7 @@ class TrucoPartida(Base):
     client_seed = Column(String, nullable=False)
     nonce_base = Column(Integer, nullable=False)
 
+    con_flor = Column(Boolean, default=False, nullable=False)
     acciones = Column(JSONB, default=list, nullable=False)
     terminada = Column(Boolean, default=False, nullable=False)
     ganador = Column(Integer, nullable=True)  # 0 el jugador, 1 la casa

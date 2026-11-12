@@ -20,6 +20,7 @@ router = APIRouter(prefix="/truco", tags=["Truco"])
 
 class ApuestaTruco(BaseModel):
     bet_amount: Decimal = Field(..., gt=0, decimal_places=2)
+    con_flor: bool = False
 
 
 class AccionTruco(BaseModel):
@@ -33,7 +34,7 @@ async def empezar(
     current_user: User = Depends(get_current_user),
 ):
     """Apuesta y reparte la primera mano."""
-    return await empezar_partida(db, current_user.id, datos.bet_amount)
+    return await empezar_partida(db, current_user.id, datos.bet_amount, datos.con_flor)
 
 
 @router.get("/partida")

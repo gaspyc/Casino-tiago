@@ -18,7 +18,7 @@ from app.modules.games.truco.cartas import (
     comparar,
     palo_de,
     puntos_envido,
-    puntos_flor,
+    tantos_de_flor,
     tiene_flor,
     valor_de,
     valor_envido,
@@ -146,9 +146,9 @@ def test_flor_es_tener_las_tres_del_mismo_palo():
     assert tiene_flor(["7E", "6E", "4C"]) is False
 
 
-def test_puntos_de_flor():
-    assert puntos_flor(["7E", "6E", "4E"]) == 37
-    assert puntos_flor(["12E", "11E", "10E"]) == 20
+def test_tantos_de_una_flor():
+    assert tantos_de_flor(["7E", "6E", "4E"]) == 37
+    assert tantos_de_flor(["12E", "11E", "10E"]) == 20
 
 
 # --------------------------- quién gana la mano ---------------------------

@@ -17,11 +17,13 @@ class Partida:
         nonce_base: int,
         mano_inicial: int = 0,
         objetivo: int = PUNTOS_PARTIDA,
+        con_flor: bool = False,
     ):
         self.server_seed = server_seed
         self.client_seed = client_seed
         self.nonce_base = nonce_base
         self.objetivo = objetivo
+        self.con_flor = con_flor
 
         self.puntos = [0, 0]
         self.manos_jugadas = 0
@@ -44,7 +46,10 @@ class Partida:
         )
 
         self.mano_actual = Mano(
-            cartas, mano=self.proximo_mano, puntos_partida=tuple(self.puntos)
+            cartas,
+            mano=self.proximo_mano,
+            puntos_partida=tuple(self.puntos),
+            con_flor=self.con_flor,
         )
         self.proximo_mano = 1 - self.proximo_mano
         return self.mano_actual
@@ -71,6 +76,7 @@ class Partida:
             "puntos": list(self.puntos),
             "objetivo": self.objetivo,
             "manos_jugadas": self.manos_jugadas,
+            "con_flor": self.con_flor,
             "terminada": self.terminada,
             "ganador": self.ganador,
         }
