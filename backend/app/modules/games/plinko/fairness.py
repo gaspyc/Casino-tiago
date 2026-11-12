@@ -24,7 +24,11 @@ RTP real era 99.5% en riesgo bajo, 110% en medio y 177% en alto.
 import hashlib
 import hmac
 
-from app.modules.games.shared.semillas import generar_server_seed, hashear_seed
+from app.modules.games.shared.semillas import (
+    generar_client_seed,
+    generar_server_seed,
+    hashear_seed,
+)
 
 __all__ = [
     "MAX_FILAS",
@@ -37,11 +41,6 @@ __all__ = [
 
 # Un byte de la firma por fila, y la firma tiene 32.
 MAX_FILAS = 32
-
-
-def generar_client_seed() -> str:
-    """Client seed por defecto, para el jugador que no elige uno."""
-    return generar_server_seed()[:16]
 
 
 def derivar_camino(server_seed: str, client_seed: str, nonce: int, filas: int) -> list:

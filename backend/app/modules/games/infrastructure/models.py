@@ -74,6 +74,35 @@ class CrashGameSession(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+class TrucoPartida(Base):
+    """Una partida de truco contra la casa.
+
+    No se guarda el estado del juego sino las acciones: la partida se
+    reconstruye reproduciéndolas sobre el motor, que es puro y determinístico.
+    Así no hay dos representaciones del mismo estado que puedan discrepar, y la
+    partida entera queda auditable.
+    """
+
+    __tablename__ = "truco_partidas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    apuesta = Column(Numeric(10, 2), nullable=False)
+    payout = Column(Numeric(10, 2), default=0.00, nullable=False)
+
+    server_seed = Column(String, nullable=False)
+    server_seed_hash = Column(String, nullable=False)
+    client_seed = Column(String, nullable=False)
+    nonce_base = Column(Integer, nullable=False)
+
+    acciones = Column(JSONB, default=list, nullable=False)
+    terminada = Column(Boolean, default=False, nullable=False)
+    ganador = Column(Integer, nullable=True)  # 0 el jugador, 1 la casa
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class GameSeed(Base):
     """Semilla provably fair de un jugador para un juego.
 

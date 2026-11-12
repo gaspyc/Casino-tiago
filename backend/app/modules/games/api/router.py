@@ -7,6 +7,7 @@ from app.modules.games.poker.multiplayer_router import router as poker_multiplay
 from app.modules.games.plinko.router import router as plinko_router
 from app.modules.games.roulette.router import router as roulette_router
 from app.modules.games.slots.router import router as slots_router
+from app.modules.games.truco.router import router as truco_router
 
 router = APIRouter(prefix="/games", tags=["Games"])
 
@@ -20,6 +21,7 @@ async def list_games():
         {"id": "poker", "name": "Poker", "category": "Cards"},
         {"id": "crash", "name": "Crash", "category": "Arcade"},
         {"id": "plinko", "name": "Plinko", "category": "Arcade"},
+        {"id": "truco", "name": "Truco", "category": "Cards"},
     ]
 
 
@@ -30,3 +32,4 @@ router.include_router(blackjack_multiplayer_router)
 router.include_router(poker_multiplayer_router)
 router.include_router(crash_router)
 router.include_router(plinko_router)
+router.include_router(truco_router)

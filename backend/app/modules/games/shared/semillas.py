@@ -17,3 +17,8 @@ def generar_server_seed() -> str:
 def hashear_seed(server_seed: str) -> str:
     """El compromiso que se publica antes de jugar."""
     return hashlib.sha256(server_seed.encode()).hexdigest()
+
+
+def generar_client_seed() -> str:
+    """Client seed por defecto, para el jugador que no elige uno."""
+    return generar_server_seed()[:16]
