@@ -205,3 +205,35 @@ class MinesGame(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class GeneralaPartida(Base):
+    """Una partida de generala contra la casa.
+
+    Igual que el truco: no se guarda el estado sino las acciones, y la partida
+    se rehace reproduciéndolas sobre el motor. Los dados salen de un flujo
+    determinado por el seed y consumido en orden, así que repetir las mismas
+    acciones da exactamente los mismos dados.
+    """
+
+    __tablename__ = "generala_partidas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    apuesta = Column(Numeric(10, 2), nullable=False)
+    payout = Column(Numeric(10, 2), default=0.00, nullable=False)
+
+    server_seed = Column(String, nullable=False)
+    server_seed_hash = Column(String, nullable=False)
+    client_seed = Column(String, nullable=False)
+    nonce = Column(Integer, nullable=False)
+
+    # Quién arranca. Se alterna entre partidas del mismo jugador.
+    empieza = Column(Integer, default=0, nullable=False)
+
+    acciones = Column(JSONB, default=list, nullable=False)
+    terminada = Column(Boolean, default=False, nullable=False)
+    ganador = Column(Integer, nullable=True)  # 0 el jugador, 1 la casa, None empate
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
