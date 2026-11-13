@@ -287,8 +287,8 @@ const plazoDeTurno = ref(90);
 
 // La tabla de pagos contra la casa. Viene del servidor para que la
 // pantalla no pueda quedar diciendo un pago distinto del que se liquida.
-const equilibrio = ref(175);
-const premioServida = ref('17');
+const equilibrio = ref(165);
+const premioServida = ref('9');
 const tablaPagos = ref([]);
 
 let sondeo = null;

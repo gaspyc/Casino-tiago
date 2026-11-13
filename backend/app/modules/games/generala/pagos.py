@@ -54,28 +54,58 @@ Lo que da
 ---------
 Medido sobre 400.000 planillas por política, con el techo resuelto exacto:
 
-    politica                 puntos    RTP     del puntaje   del premio
-    --------------------------------------------------------------------
-    juego perfecto (exacto)   149,1   95,56%
-    calculadora (1 tirada)    140,0   91,2%       80,0%         11,2%
-    bot de la casa            141,4   89,5%       80,8%          8,7%
-    heuristica (casual)       124,3   82,1%       71,0%         11,1%
-    azarosa (piso)             51,9   31,8%       29,7%          2,1%
+    politica                 puntos    RTP     gana >=1x
+    ------------------------------------------------------
+    juego perfecto (exacto)   149,1   95,75%
+    heuristica (casual)       124,3   81,2%      17,9%
+    azarosa (piso)             51,9   31,5%       0,2%
 
-    brecha perfecto/casual             1,164x   antes era 1,37x
-    desvio estandar del pago            1,40
+    brecha perfecto/casual             1,179x    antes era 1,37x
+    desvio estandar del pago            0,78
 
-El casual pasa de dejar el 31,4% a dejar el 17,9%, y la ventaja de la casa
-contra el mejor jugador posible queda fijada y conocida —4,44%— en vez de
+El casual pasa de dejar el 31,4% a dejar el 18,8%, y la ventaja de la casa
+contra el mejor jugador posible queda fijada y conocida —4,25%— en vez de
 estimada con el mejor bot que uno pudo escribir.
 
-El premio aporta el 13% del RTP: alcanza para que el juego tenga un golpe
-grande sin que el puntaje deje de ser lo que manda.
+Cuántas manos ganan
+-------------------
+Con el RTP fijo, cada mano que paga más de 1x tiene que salir de otra que
+paga menos: es la misma plata repartida distinto. Hay dos formas de hacerlo y
+una es mucho peor que la otra.
 
-Lo que se resignó: casi ninguna partida paga más de 1x por puntaje solo —un
-casual pasa de 175 puntos una de cada nueve— y el resto cobra entre 0,4x y
-0,95x. Es el precio de no poner umbral, y es a propósito: con umbral habría
-más partidas ganadoras y una brecha peor que la que se vino a arreglar.
+Bajar el premio (sin umbral), medido:
+
+    premio  equilibrio  casual   gana >=1x  sigma   brecha
+    --------------------------------------------------------
+      0x        155      80,0%     21,4%     0,23   1,200x
+      6x        162      80,6%     19,0%     0,55   1,185x
+      9x        165      81,2%     17,9%     0,78   1,179x   <- la de ahora
+     12x        168      81,8%     16,5%     1,01   1,173x
+     17x        175      82,1%     12,6%     1,40   1,164x
+
+Poner umbral, con el premio sostenido en ~15x, medido:
+
+    umbral  equilibrio  casual   gana >=1x  no paga  brecha
+    ----------------------------------------------------------
+      0         174      82,5%     12,6%      0,0%   1,164x
+     60         163      73,0%     18,7%      2,8%   1,315x
+     90         158      64,4%     20,2%     17,8%   1,491x
+    120         156      56,6%     21,1%     47,5%   1,695x
+
+A la misma cantidad de manos ganadoras —18,7%— el umbral cuesta ocho puntos
+de RTP del casual y 0,13 más de brecha que bajar el premio. Por punto de
+manos ganadoras: el premio cuesta 0,004 de brecha y el umbral entre 0,025 y
+0,063, o sea de seis a quince veces más.
+
+La razón es dónde sale la plata. El umbral la saca del fondo de la
+distribución, que es justo donde el casual vive y el experto no. El premio la
+saca de un evento raro que es casi independiente de jugar bien —de hecho el
+casual anota la generala servida un poco más seguido que el óptimo, 0,65%
+contra 0,55%, porque el óptimo tacha esa fila para maximizar puntos—.
+
+Así que el umbral está descartado por medición, no por gusto, y lo que de
+verdad se paga por tener más manos ganadoras no es brecha sino varianza: el
+desvío del pago baja de 1,40 a 0,78 al ir de 17x a 9x.
 
 Los números de arriba se reproducen con:
 
@@ -96,10 +126,12 @@ __all__ = [
 
 # El puntaje que devuelve exactamente la apuesta. Es la forma legible de
 # escribir la pendiente: un punto vale 1/PUNTAJE_DE_EQUILIBRIO de la apuesta.
-PUNTAJE_DE_EQUILIBRIO = 175
+PUNTAJE_DE_EQUILIBRIO = 165
 
 # Lo que paga aparte anotar la generala servida, sumado al pago por puntaje.
-PREMIO_SERVIDA = Decimal("17")
+# Mover este número es la palanca barata para que haya más manos ganadoras:
+# ver "Cuántas manos ganan" abajo.
+PREMIO_SERVIDA = Decimal("9")
 
 # Lo que le vuelve al que juega perfecto. La ventaja de la casa es el resto.
 RTP_OBJETIVO = Decimal("0.96")
