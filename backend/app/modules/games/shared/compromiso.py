@@ -28,6 +28,7 @@ __all__ = [
     "describir_semilla",
     "obtener_semilla_activa",
     "rotar_semilla",
+    "semilla_por_id",
     "siguiente_nonce",
 ]
 
@@ -83,6 +84,15 @@ async def obtener_semilla_activa(
 
     await db.refresh(semilla)
     return semilla
+
+
+async def semilla_por_id(db: AsyncSession, seed_id: int) -> GameSeed:
+    """La semilla con la que se jugó una mano, aunque ya esté revelada.
+
+    Los juegos que no resuelven en una sola jugada la necesitan después, para
+    rehacer el tablero mientras la partida sigue abierta.
+    """
+    return await db.get(GameSeed, seed_id)
 
 
 async def siguiente_nonce(db: AsyncSession, semilla: GameSeed) -> int:

@@ -176,3 +176,32 @@ class CrashBet(Base):
     cashout_multiplier = Column(Numeric(10, 2), nullable=True) # None if the user didn't cash out before crash
     payout = Column(Numeric(10, 2), default=0.00, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class MinesGame(Base):
+    """Una grilla de mines.
+
+    No guarda dónde están las minas: salen del seed, el nonce y la cantidad.
+    Derivarlas en vez de guardarlas evita de raíz que se filtren por algún
+    campo que termine serializándose, y además deja la grilla fijada por el
+    compromiso desde antes del primer destape.
+    """
+
+    __tablename__ = "mines_games"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    bet_amount = Column(Numeric(10, 2), nullable=False)
+    minas = Column(Integer, nullable=False)
+    # Las casillas que el jugador dio vuelta, en orden.
+    destapadas = Column(JSONB, default=list, nullable=False)
+    status = Column(String, default="ACTIVE", nullable=False)  # ACTIVE, CASHED, BUSTED
+    payout = Column(Numeric(10, 2), default=0, nullable=False)
+
+    seed_id = Column(Integer, ForeignKey("game_seeds.id"), nullable=False)
+    nonce = Column(Integer, nullable=False)
+    server_seed_hash = Column(String, nullable=False)
+    client_seed = Column(String, nullable=False)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -38,6 +38,13 @@
           <div class="play-btn" style="color: #22c55e;">Jugar Plinko</div>
         </div>
 
+        <div class="glass-panel game-card" style="border-top-color: #06b6d4;" @click="router.push('/mines')">
+          <div class="game-icon">💣</div>
+          <h3>Mines</h3>
+          <p>Destapá casillas sin tocar una mina. Cobrá cuando quieras, el multiplicador sube con cada acierto.</p>
+          <div class="play-btn" style="color: #06b6d4;">Jugar Mines</div>
+        </div>
+
         <div class="glass-panel game-card" style="border-top-color: #eab308;" @click="router.push('/truco')">
           <div class="game-icon">🂡</div>
           <h3>Truco</h3>
