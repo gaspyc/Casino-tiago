@@ -36,13 +36,20 @@ sola vez. Y es rala: guardar cuatro dados deja seis finales posibles, no 252.
 En total tiene 4368 entradas no nulas sobre 116 mil, que es la razón por la
 que esto corre en Python puro sin necesidad de numpy.
 
-Lo que NO cubre
----------------
-Maximiza el PUNTAJE esperado, no el pago esperado. Son lo mismo mientras la
-tabla de pagos sea afín en el puntaje; cuando deja de serlo —un umbral abajo,
-un escalón grande arriba— el jugador óptimo empieza a arriesgar distinto y
-este número se queda corto. Es la razón por la que la tabla se diseña casi
-afín: para que este techo siga siendo el techo.
+Con umbral
+----------
+`resolver()` maximiza el PUNTAJE esperado, que es lo mismo que maximizar el
+pago esperado sólo mientras la tabla sea afín. Con un umbral —"abajo de U no
+paga nada"— deja de serlo: al que le va mal le conviene arriesgar, porque
+abajo del umbral todo vale cero igual, y ese jugador rinde más de lo que
+`resolver()` predice.
+
+Por eso `valor_con_umbral()` resuelve el caso con umbral, también exacto. El
+estado se agranda: además de qué categorías quedan libres hay que saber
+cuánto se lleva anotado, porque es lo que dice si el umbral está en juego.
+Son U x 1024 estados en vez de 1024, y alcanza con los puntajes por debajo
+del umbral: una vez que lo pasaste, lo que sigue vuelve a ser afín y sirve
+`resolver()`.
 
     python -m app.modules.games.generala.optimo
 """
@@ -60,6 +67,9 @@ __all__ = [
     "distribucion_de_la_primera",
     "jugada_optima",
     "resolver",
+    "techo_con_umbral",
+    "techo_del_pago",
+    "valor_con_umbral",
     "valor_de_la_partida",
 ]
 
@@ -247,6 +257,85 @@ def _mejor_guardando(siguiente, transicion, guardables):
         max(por_guardado[k] for k in indices)
         for indices in guardables
     ]
+
+
+@lru_cache(maxsize=32)
+def valor_con_umbral(umbral: int, bonus_servida: float = 0.0) -> float:
+    """max E[(puntaje - umbral)+ + bonus por servida]. Exacto, con umbral.
+
+    Devuelve el resultado en puntos, no en multiplicadores: el pago es
+    `por_punto` veces esto. Separarlo así es lo que evita la bisección, porque
+    el número no depende de la pendiente —calibrar es dividir.
+
+    El estado agrega lo anotado hasta ahora, acotado al umbral: apenas lo
+    superás, lo que falta vuelve a ser afín y vale `resolver(bonus)`. Eso deja
+    la tabla en U x 1024 en vez de en todos los puntajes posibles.
+    """
+    if umbral <= 0:
+        return valor_de_la_partida(bonus_servida)
+
+    transicion = _transicion()
+    guardables = _guardables_de()
+    puntos = _puntajes()
+    primera_tirada = distribucion_de_la_primera()
+    cantidad = len(DADOS_POSIBLES)
+
+    # Una vez pasado el umbral el problema vuelve a ser el de siempre.
+    arriba = resolver(bonus_servida)
+
+    # tabla[mascara][anotado] para anotado en [0, umbral).
+    tabla = [None] * (1 << len(CATEGORIAS))
+
+    def valor_despues(mascara: int, anotado: int) -> float:
+        if anotado >= umbral:
+            return (anotado - umbral) + arriba[mascara]
+        return tabla[mascara][anotado]
+
+    for mascara in sorted(range(1 << len(CATEGORIAS)), key=lambda m: -bin(m).count("1")):
+        if mascara == LLENA:
+            # Con la planilla llena no queda nada: abajo del umbral, cero.
+            tabla[mascara] = [0.0] * umbral
+            continue
+
+        libres = [i for i in range(len(CATEGORIAS)) if not mascara & (1 << i)]
+        propia = [0.0] * umbral
+
+        for anotado in range(umbral):
+            armada = puntos[False]
+            final = [
+                max(
+                    valor_despues(mascara | (1 << i), anotado + armada[i][d])
+                    for i in libres
+                )
+                for d in range(cantidad)
+            ]
+            segunda = _mejor_guardando(final, transicion, guardables)
+
+            servido = puntos[True]
+            anotar_servida = [
+                max(
+                    valor_despues(mascara | (1 << i), anotado + servido[i][d])
+                    + (bonus_servida if _es_generala_servida(i, d) else 0.0)
+                    for i in libres
+                )
+                for d in range(cantidad)
+            ]
+            volver_a_tirar = _mejor_guardando(segunda, transicion, guardables)
+
+            propia[anotado] = sum(
+                probabilidad * max(anotar_servida[d], volver_a_tirar[d])
+                for d, probabilidad in enumerate(primera_tirada)
+            )
+
+        tabla[mascara] = propia
+
+    return tabla[0][0]
+
+
+def techo_con_umbral(umbral: int, por_punto: float, premio_servida: float = 0.0) -> float:
+    """El RTP del juego perfecto bajo un pago con umbral. Exacto."""
+    bonus = premio_servida / por_punto if por_punto else 0.0
+    return por_punto * valor_con_umbral(umbral, bonus)
 
 
 def valor_de_la_partida(bonus_servida: float = 0.0) -> float:

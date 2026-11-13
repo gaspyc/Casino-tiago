@@ -281,3 +281,92 @@ def test_la_politica_optima_juega_una_partida_entera():
     assert partida.turnos_jugados == 2 * len(CATEGORIAS)
     assert all(puntos is not None for puntos in partida.planillas[0].values())
     assert partida.total(0) > 0
+
+
+# ------------------------------ el techo con umbral ------------------------------
+# Con umbral el pago deja de ser afín y `resolver()` deja de ser el techo: al
+# que le va mal le conviene arriesgar, porque abajo del umbral todo paga cero
+# igual. `valor_con_umbral` resuelve ese caso, y estos tests lo encajonan
+# entre dos cotas que valen por álgebra, sin depender del solver.
+
+def test_sin_umbral_da_exactamente_lo_mismo_que_el_afin():
+    from app.modules.games.generala.optimo import valor_con_umbral
+
+    assert valor_con_umbral(0) == valor_de_la_partida()
+    assert valor_con_umbral(0, 500.0) == valor_de_la_partida(500.0)
+
+
+def test_el_umbral_queda_entre_las_dos_cotas_obvias():
+    """(s-U)+ >= s-U y (s-U)+ <= s, así que el valor está entre las dos."""
+    from app.modules.games.generala.optimo import valor_con_umbral
+
+    entero = valor_de_la_partida()
+
+    for umbral in (4, 8):
+        valor = valor_con_umbral(umbral)
+        assert valor >= entero - umbral - 1e-9, umbral
+        assert valor <= entero + 1e-9, umbral
+
+
+def test_arriesgar_no_puede_empeorar():
+    """El jugador con umbral tiene una opción más, nunca una menos."""
+    from app.modules.games.generala.optimo import valor_con_umbral
+
+    for umbral in (4, 8):
+        assert valor_con_umbral(umbral) >= valor_de_la_partida() - umbral - 1e-9
+
+
+def test_el_umbral_chico_casi_no_cambia_nada():
+    """El óptimo no termina abajo de 8 puntos nunca, así que no arriesga."""
+    from app.modules.games.generala.optimo import valor_con_umbral
+
+    diferencia = valor_con_umbral(8) - (valor_de_la_partida() - 8)
+    assert 0 <= diferencia < 0.01, diferencia
+
+
+def test_mas_umbral_siempre_vale_menos():
+    from app.modules.games.generala.optimo import valor_con_umbral
+
+    valores = [valor_con_umbral(u) for u in (0, 4, 8)]
+    assert valores == sorted(valores, reverse=True)
+
+
+def test_el_techo_con_umbral_es_el_valor_por_la_pendiente():
+    from app.modules.games.generala.optimo import techo_con_umbral, valor_con_umbral
+
+    umbral, por_punto, premio = 6, 0.008, 2.0
+    bonus = premio / por_punto
+
+    esperado = por_punto * valor_con_umbral(umbral, bonus)
+    assert abs(techo_con_umbral(umbral, por_punto, premio) - esperado) < 1e-12
+
+
+def test_ninguna_politica_le_gana_al_techo_con_umbral():
+    """Cruce contra el motor: se juega la política de máximo puntaje y su
+    E[(puntaje-umbral)+] tiene que quedar abajo del valor resuelto."""
+    from app.modules.games.generala.optimo import jugada_optima, valor_con_umbral
+    from app.modules.games.generala.partida import Partida
+
+    umbral = 8
+    techo = valor_con_umbral(umbral)
+    total = 0.0
+    vueltas = 300
+
+    for nonce in range(vueltas):
+        partida = Partida("umbral-de-prueba", "cliente", nonce, empieza=0,
+                          corta_servida_de=())
+        while not partida.terminada:
+            turno = partida.turno
+            que, cual = jugada_optima(turno.dados, turno.disponibles, turno.tirada)
+            if que == "anotar":
+                turno.anotar(cual)
+            else:
+                turno.tirar(cual)
+            if turno.terminado:
+                partida.cerrar_turno()
+
+        total += max(0, partida.total(0) - umbral)
+
+    medido = total / vueltas
+    # Margen amplio: son 300 partidas y el desvío por planilla es grande.
+    assert medido <= techo + 6, (medido, techo)
