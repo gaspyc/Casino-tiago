@@ -76,6 +76,20 @@
         </div>
       </div>
       
+      <FairnessPanel
+        class="bj-fairness"
+        :server-seed-hash="semilla.server_seed_hash"
+        :client-seed="semilla.client_seed"
+        :nonce="semilla.nonce"
+        :server-seed="seedRevelado"
+        :can-rotate="!manoAbierta"
+        :rotating="rotando"
+        nonce-label="Manos con esta semilla"
+        help-text="El hash se publica antes de repartir. Al rotar la semilla se revela el seed y podés rehacer el mazo de cada mano que jugaste con ella. No se puede rotar con una mano abierta: con el seed se vería la carta tapada del crupier."
+        formula='mazo = Fisher-Yates(52) con los bytes de HMAC_SHA256(server_seed, "client_seed:nonce:i")'
+        @rotate="rotarSemilla"
+      />
+
       <!-- Modal de Fin de Partida -->
       <Teleport to="body">
         <div v-if="gameActive && gameState && gameState.status !== 'ACTIVE'" class="modal-overlay">
@@ -102,6 +116,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import confetti from 'canvas-confetti';
 import api from '../shared/api';
+import FairnessPanel from '../widgets/FairnessPanel.vue';
 
 const router = useRouter();
 const balance = ref('0.00');
@@ -111,6 +126,15 @@ const errorMsg = ref('');
 const betAmount = ref(10);
 const gameActive = ref(false);
 const gameState = ref(null);
+
+// Provably fair: el compromiso vigente y el seed ya revelado.
+const semilla = ref({ server_seed_hash: null, client_seed: null, nonce: 0 });
+const seedRevelado = ref(null);
+const rotando = ref(false);
+
+// Con una mano abierta el backend rechaza la rotación, así que el botón no se
+// ofrece: revelar el seed en medio de una mano sería ver el mazo entero.
+const manoAbierta = computed(() => gameState.value?.status === 'ACTIVE');
 
 const canDouble = computed(() => {
   if (!gameState.value) return false;
@@ -134,8 +158,51 @@ const loadBalance = async () => {
   }
 };
 
+const cargarSemilla = async () => {
+  try {
+    const res = await api.get('/games/blackjack/semilla');
+    semilla.value = res.data;
+  } catch {
+    // Si falla, el panel queda en guiones: no bloquea el juego.
+  }
+};
+
+const rotarSemilla = async () => {
+  rotando.value = true;
+  try {
+    const res = await api.post('/games/blackjack/semilla/rotar', {});
+    seedRevelado.value = res.data.revelada.server_seed;
+    semilla.value = res.data.activa;
+  } catch (e) {
+    errorMsg.value = e.response?.data?.detail || 'No se pudo rotar la semilla';
+  } finally {
+    rotando.value = false;
+  }
+};
+
+// La apuesta se debita al repartir: si el jugador se fue a mitad de mano, esa
+// mano lo está esperando y hay que devolvérsela, no arrancar una nueva.
+const retomarManoAbierta = async () => {
+  try {
+    const res = await api.get('/games/blackjack/activa');
+    if (!res.data) return;
+
+    gameState.value = res.data;
+    gameActive.value = true;
+    semilla.value = {
+      server_seed_hash: res.data.server_seed_hash,
+      client_seed: res.data.client_seed,
+      nonce: res.data.nonce,
+    };
+  } catch {
+    // Si falla, se ve la pantalla de apostar: no deja el juego trabado.
+  }
+};
+
 onMounted(() => {
   loadBalance();
+  cargarSemilla();
+  retomarManoAbierta();
 });
 
 const startGame = async () => {
@@ -145,6 +212,16 @@ const startGame = async () => {
     const res = await api.post('/games/blackjack/start', { bet_amount: betAmount.value });
     gameState.value = res.data;
     gameActive.value = true;
+
+    // El compromiso de esta mano ya estaba publicado. El seed revelado que
+    // hubiera en pantalla es de la semilla anterior, así que se limpia.
+    semilla.value = {
+      server_seed_hash: res.data.server_seed_hash,
+      client_seed: res.data.client_seed,
+      nonce: res.data.nonce,
+    };
+    seedRevelado.value = null;
+
     await loadBalance();
     
     if (res.data.status !== 'ACTIVE') {
@@ -259,6 +336,10 @@ const getResultClass = (status) => {
 </script>
 
 <style scoped>
+.bj-fairness {
+  margin-top: 18px;
+}
+
 .blackjack-page {
   padding: 20px 40px;
   max-width: 1000px;

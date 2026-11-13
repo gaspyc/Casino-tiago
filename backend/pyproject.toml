@@ -18,6 +18,15 @@ python-multipart = "^0.0.9"
 alembic = "^1.18.4"
 redis = "^5.0.0"
 
+# Opcional a proposito: la imagen de produccion no necesita pytest.
+# Para correr los tests:  poetry install --with dev
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-asyncio = "^0.23"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

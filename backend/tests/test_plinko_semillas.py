@@ -34,7 +34,8 @@ EMAIL = "test_plinko_semillas@example.test"
 
 
 async def _borrar_usuario_de_prueba(db):
-    for tabla in ("transactions", "bets", "game_seeds", "crash_bets", "blackjack_games"):
+    # blackjack_games antes que game_seeds: tiene una FK a la semilla.
+    for tabla in ("transactions", "bets", "crash_bets", "blackjack_games", "game_seeds"):
         await db.execute(
             text(
                 "DELETE FROM %s WHERE user_id IN "

@@ -2,21 +2,12 @@ import math
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import HTTPException
-from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import func
 
 from app.modules.games.infrastructure.models import Bet, GameSeed
-from app.modules.games.plinko.fairness import (
-    derivar_camino,
-    generar_client_seed,
-    generar_server_seed,
-    hashear_seed,
-    slot_desde_camino,
-)
+from app.modules.games.plinko.fairness import derivar_camino, slot_desde_camino
 from app.modules.games.plinko.schemas import PlinkoBetCreate, PlinkoResultResponse
-from app.modules.games.shared import rng
+from app.modules.games.shared import compromiso, rng
 from app.modules.wallet.application.balance import credit, debit
 from app.modules.wallet.infrastructure.models import Transaction
 
@@ -181,49 +172,8 @@ def construir_tiro(rows: int, camino: list) -> dict:
 
 
 async def obtener_semilla_activa(db: AsyncSession, user_id: int) -> GameSeed:
-    """La semilla vigente del jugador, creándola en la primera jugada.
-
-    Mientras está activa sólo se publica su hash. El jugador la rota cuando
-    quiere verificar, y ahí se revela.
-    """
-    consulta = (
-        select(GameSeed)
-        .where(
-            GameSeed.user_id == user_id,
-            GameSeed.game_id == GAME_ID,
-            GameSeed.revealed_at.is_(None),
-        )
-        .limit(1)
-    )
-
-    semilla = await db.scalar(consulta)
-    if semilla is not None:
-        return semilla
-
-    semilla = GameSeed(
-        user_id=user_id,
-        game_id=GAME_ID,
-        server_seed=generar_server_seed(),
-        client_seed=generar_client_seed(),
-        nonce=0,
-    )
-    semilla.server_seed_hash = hashear_seed(semilla.server_seed)
-    db.add(semilla)
-
-    try:
-        await db.commit()
-    except IntegrityError:
-        # Dos jugadas simultáneas en la primera bola: el índice único deja una
-        # sola semilla activa, así que la otra se queda con la que ganó.
-        await db.rollback()
-        semilla = await db.scalar(consulta)
-        if semilla is None:
-            raise
-
-        return semilla
-
-    await db.refresh(semilla)
-    return semilla
+    """La semilla vigente del jugador en plinko. El ciclo vive en shared."""
+    return await compromiso.obtener_semilla_activa(db, user_id, GAME_ID)
 
 
 async def rotar_semilla(
@@ -231,48 +181,15 @@ async def rotar_semilla(
     user_id: int,
     client_seed: str = None,
 ) -> dict:
-    """Revela la semilla vigente y deja una nueva activa.
+    """Revela la semilla vigente y deja una nueva.
 
     Con el seed revelado el jugador rehace el camino de todas las bolas que tiró
-    con esa semilla, nonce por nonce, y comprueba que el hash que vio desde el
-    principio es el de ese seed. El client seed de la nueva lo elige él, así el
-    operador no puede preparar el resultado de antemano.
+    con esa semilla, nonce por nonce.
     """
-    anterior = await obtener_semilla_activa(db, user_id)
-    anterior.revealed_at = func.now()
-
-    nueva = GameSeed(
-        user_id=user_id,
-        game_id=GAME_ID,
-        server_seed=generar_server_seed(),
-        client_seed=client_seed or generar_client_seed(),
-        nonce=0,
-    )
-    nueva.server_seed_hash = hashear_seed(nueva.server_seed)
-    db.add(nueva)
-
-    await db.commit()
-    await db.refresh(anterior)
-    await db.refresh(nueva)
-
-    return {
-        "revelada": {
-            "server_seed": anterior.server_seed,
-            "server_seed_hash": anterior.server_seed_hash,
-            "client_seed": anterior.client_seed,
-            "jugadas": anterior.nonce,
-        },
-        "activa": describir_semilla(nueva),
-    }
+    return await compromiso.rotar_semilla(db, user_id, GAME_ID, client_seed)
 
 
-def describir_semilla(semilla: GameSeed) -> dict:
-    """Lo único que se publica de una semilla activa: su compromiso."""
-    return {
-        "server_seed_hash": semilla.server_seed_hash,
-        "client_seed": semilla.client_seed,
-        "nonce": semilla.nonce,
-    }
+describir_semilla = compromiso.describir_semilla
 
 
 async def play_plinko_service(
@@ -287,13 +204,7 @@ async def play_plinko_service(
 
     # El nonce se incrementa en la base: dos bolas simultáneas no pueden caer en
     # el mismo, que daría el mismo camino y rompería la verificación.
-    nonce = await db.scalar(
-        update(GameSeed)
-        .where(GameSeed.id == semilla.id)
-        .values(nonce=GameSeed.nonce + 1)
-        .returning(GameSeed.nonce)
-        .execution_options(synchronize_session=False)
-    )
+    nonce = await compromiso.siguiente_nonce(db, semilla)
 
     camino = derivar_camino(
         semilla.server_seed, semilla.client_seed, nonce, bet_data.rows

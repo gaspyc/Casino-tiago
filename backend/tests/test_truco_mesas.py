@@ -36,7 +36,8 @@ async def _limpiar(db):
         ),
         {"nombres": list(nombres)},
     )
-    for tabla in ("transactions", "bets", "truco_partidas", "game_seeds"):
+    # blackjack_games antes que game_seeds: tiene una FK a la semilla.
+    for tabla in ("transactions", "bets", "truco_partidas", "blackjack_games", "game_seeds"):
         await db.execute(
             text(
                 "DELETE FROM %s WHERE user_id IN "

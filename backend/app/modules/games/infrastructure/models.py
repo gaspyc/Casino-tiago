@@ -26,6 +26,15 @@ class BlackjackGame(Base):
     status = Column(String, default="ACTIVE", nullable=False) # ACTIVE, PLAYER_WON, DEALER_WON, PUSH, BUSTED
     is_split = Column(Boolean, default=False, nullable=False)
     active_hand_index = Column(Integer, default=0, nullable=False)
+
+    # Provably fair. Nullable porque las manos repartidas antes de que el
+    # blackjack tuviera compromiso no se pueden verificar: quedan en NULL y la
+    # respuesta lo dice, en vez de inventar un hash que no comprueba nada.
+    seed_id = Column(Integer, ForeignKey("game_seeds.id"), nullable=True)
+    nonce = Column(Integer, nullable=True)
+    server_seed_hash = Column(String, nullable=True)
+    client_seed = Column(String, nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
