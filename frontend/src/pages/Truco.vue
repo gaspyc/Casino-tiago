@@ -117,6 +117,24 @@
           Esperando a {{ suNombre }}…
         </p>
 
+        <p
+          v-if="esMesa && juego.segundos_restantes !== null && !juego.terminada"
+          class="reloj"
+          :class="{ apurado: juego.segundos_restantes <= 15 }"
+        >
+          {{ juego.me_toca ? 'Te quedan' : `A ${suNombre} le quedan` }}
+          {{ juego.segundos_restantes }}s para hablar
+        </p>
+
+        <button
+          v-if="juego.puedo_reclamar"
+          class="btn-reclamar"
+          :disabled="cargando"
+          @click="reclamar"
+        >
+          Se le venció el plazo: llevarme la mesa
+        </button>
+
         <button
           v-if="esMesa && !juego.terminada"
           class="btn-secundario chico"
@@ -185,6 +203,11 @@
 
         <div v-if="juego.terminada" class="resultado" :class="{ ganada: gane }">
           <strong>{{ gane ? '¡Ganaste!' : 'Perdiste' }}</strong>
+          <span v-if="porPlazo" class="motivo">
+            {{ gane
+              ? '⏱ Se le venció el plazo del turno'
+              : '⏱ Se te venció el plazo del turno' }}
+          </span>
           <span v-if="gane">Cobraste ${{ esMesa ? juego.premio : juego.payout }}</span>
           <button class="btn-principal" @click="reiniciar">Otra partida</button>
         </div>
@@ -246,6 +269,7 @@ const soyMano = computed(() => juego.value?.mano?.mano === miAsiento.value);
 const misPuntos = computed(() => juego.value?.puntos?.[miAsiento.value] ?? 0);
 const susPuntos = computed(() => juego.value?.puntos?.[1 - miAsiento.value] ?? 0);
 const gane = computed(() => juego.value?.ganador === miAsiento.value);
+const porPlazo = computed(() => juego.value?.motivo === 'plazo_vencido');
 
 const miNombre = computed(() =>
   esMesa.value ? juego.value.jugadores[miAsiento.value] || 'Vos' : 'Vos'
@@ -351,6 +375,19 @@ const abandonar = () =>
     juego.value = null;
     await cargarSaldo();
     await cargarMesas();
+  });
+
+// Al rival se le venció el plazo: la mesa es del que reclama. A diferencia de
+// abandonar, acá la partida queda a la vista con el resultado.
+const reclamar = () =>
+  conError(async () => {
+    const res = await api.post(
+      `/games/truco/mesas/${juego.value.mesa_id}/reclamar`,
+      {},
+    );
+    detenerSondeo();
+    juego.value = res.data;
+    await cargarSaldo();
   });
 
 const reiniciar = async () => {
@@ -687,6 +724,38 @@ onBeforeUnmount(detenerSondeo);
 }
 
 .esperando {
+  color: var(--text-muted);
+}
+
+.reloj {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+}
+
+.reloj.apurado {
+  color: #fbbf24;
+}
+
+.btn-reclamar {
+  width: 100%;
+  padding: 9px;
+  border-radius: 10px;
+  border: 1px solid #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-reclamar:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.resultado .motivo {
+  font-size: 0.78rem;
   color: var(--text-muted);
 }
 

@@ -9,11 +9,25 @@ La plata acá no sale de ganarle a la casa sino de una comisión sobre el pozo,
 como en las mesas de poker. Es la forma honesta de monetizar un juego de
 habilidad: la casa no juega, cobra por poner la mesa.
 
+El plazo de turno
+-----------------
+Sin plazo, el que va perdiendo nunca está obligado a perder: le alcanza con
+dejar de jugar. El rival sólo puede abandonar, y abandonar es entregar la
+mesa, así que colgarse sería estrictamente mejor que perder y la apuesta de
+los dos quedaría trabada para siempre.
+
+Acá el turno tiene plazo, igual que en las mesas de generala. Si el que tiene
+que hablar no habla en `PLAZO_DE_TURNO`, el rival reclama la mesa y se la
+lleva. No hace falta ningún proceso de fondo: el plazo se mira cuando alguien
+pregunta por la mesa, que es cada un par de segundos mientras hay alguien
+mirando.
+
 Sin WebSocket: el cliente pregunta por el estado cada par de segundos. Para un
 juego por turnos alcanza, y evita todo el estado de conexión. Si hiciera falta
 que sea instantáneo, el canal de Redis que usa crash ya está.
 """
 
+from datetime import datetime, timedelta, timezone
 from decimal import ROUND_DOWN, Decimal
 
 from fastapi import HTTPException
@@ -40,9 +54,36 @@ ESPERANDO = "esperando"
 JUGANDO = "jugando"
 TERMINADA = "terminada"
 
+JUGADA = "jugada"
+ABANDONO = "abandono"
+PLAZO_VENCIDO = "plazo_vencido"
+
 # Lo que se queda la casa del pozo. Los dos jugadores ponen la apuesta y el
 # ganador se lleva el resto.
 COMISION = Decimal("0.05")
+
+# El mismo minuto y medio que la generala, y la razón por la que no es más
+# largo es justamente que el truco tiene más acciones, no menos.
+#
+# Medido sobre 3000 partidas del bot contra sí mismo: una partida a 30 puntos
+# son 168 acciones (mediana 169, p99 209), unas 75 por jugador, contra las 56
+# de una partida de generala. O sea 2,7 veces más veces que hay que esperar al
+# rival. El plazo multiplica por ahí: a 90 segundos, una mesa jugada siempre al
+# límite dura 4,2 horas; a dos minutos pasaría a 5,6. Alargarlo no sale gratis,
+# porque mientras tanto la plata de los dos está adentro y el único modo de
+# irse es entregar la mesa.
+#
+# Y no hace falta: lo que una acción de truco pide pensar es menos, no más.
+# Medido sobre las mismas partidas, el 60,5% de las acciones es tirar una de
+# las tres cartas, y la mediana de opciones legales es 5 (máximo 8). El 39,5%
+# restante son cantos y respuestas —ahí sí se piensa—, pero decidir entre
+# querer y no querer un envido con 90 segundos encima sobra; una tirada de
+# generala, que es elegir qué dados guardar y en qué casillero anotar, es una
+# decisión más grande y le alcanza con los mismos 90.
+#
+# Si en producción se ve gente perdiendo mesas por el reloj, el número a mover
+# es este y está medido contra qué.
+PLAZO_DE_TURNO = timedelta(seconds=90)
 
 APUESTA_MAXIMA = Decimal("500.00")
 CENTAVOS = Decimal("0.01")
@@ -133,6 +174,23 @@ def reconstruir(fila: TrucoMesa) -> Partida:
     return partida
 
 
+def _ahora() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _vence(fila: TrucoMesa) -> datetime:
+    """Cuándo se le vence el plazo al que tiene que hablar."""
+    desde = fila.ultima_accion or fila.created_at or _ahora()
+    if desde.tzinfo is None:
+        desde = desde.replace(tzinfo=timezone.utc)
+
+    return desde + PLAZO_DE_TURNO
+
+
+def _segundos_restantes(fila: TrucoMesa) -> int:
+    return max(0, int((_vence(fila) - _ahora()).total_seconds()))
+
+
 # ------------------------------ acciones ------------------------------
 
 async def crear_mesa(
@@ -204,6 +262,7 @@ async def sentarse(db: AsyncSession, user_id: int, mesa_id: int) -> dict:
 
     fila.jugador_1_id = user_id
     fila.estado = JUGANDO
+    fila.ultima_accion = _ahora()
     await db.commit()
 
     return await ver_mesa(db, user_id, mesa_id)
@@ -237,6 +296,10 @@ async def jugar(db: AsyncSession, user_id: int, mesa_id: int, accion: str) -> di
     if accion not in mano.acciones(asiento):
         raise HTTPException(status_code=400, detail="Esa acción no se puede ahora")
 
+    # Hablar tarde no se rechaza. El plazo funciona como el reloj del ajedrez:
+    # vencido habilita al rival a reclamar, pero mientras no reclame la partida
+    # sigue. Bloquear la jugada tardía dejaría la mesa trabada para siempre si
+    # el rival se fue y nunca reclama, con la plata de los dos adentro.
     acciones = list(fila.acciones)
     aplicar_accion(mano, asiento, accion)
     acciones.append({"jugador": asiento, "accion": accion})
@@ -247,9 +310,10 @@ async def jugar(db: AsyncSession, user_id: int, mesa_id: int, accion: str) -> di
             partida.nueva_mano()
 
     fila.acciones = acciones
+    fila.ultima_accion = _ahora()
 
     if partida.terminada:
-        await _liquidar(db, fila, partida.ganador, partida)
+        await _liquidar(db, fila, partida.ganador, partida, JUGADA)
 
     await db.commit()
     await db.refresh(fila)
@@ -279,19 +343,67 @@ async def abandonar(db: AsyncSession, user_id: int, mesa_id: int) -> dict:
             )
         )
         fila.estado = TERMINADA
+        fila.motivo = ABANDONO
         await db.commit()
         await db.refresh(fila)
         return await _respuesta(db, fila, asiento)
 
-    # Abandonar con la mesa en juego es entregarla.
-    await _liquidar(db, fila, 1 - asiento, reconstruir(fila))
+    # Abandonar con la mesa en juego es entregarla, sin importar el puntaje.
+    await _liquidar(db, fila, 1 - asiento, reconstruir(fila), ABANDONO)
     await db.commit()
     await db.refresh(fila)
 
     return await _respuesta(db, fila, asiento)
 
 
-async def _liquidar(db: AsyncSession, fila: TrucoMesa, ganador: int, partida) -> None:
+async def reclamar(db: AsyncSession, user_id: int, mesa_id: int) -> dict:
+    """Llevarse la mesa porque al rival se le venció el plazo del turno.
+
+    Esto es lo que hace que colgarse no sea una jugada. Sólo se puede reclamar
+    cuando le toca hablar al otro y el plazo ya pasó: si el que está pensando
+    es el que reclama, no hay nada que reclamar.
+    """
+    fila = await db.get(TrucoMesa, mesa_id, with_for_update=True)
+    if fila is None:
+        raise HTTPException(status_code=404, detail="Esa mesa no existe")
+
+    asiento = asiento_de(fila, user_id)
+
+    if fila.estado != JUGANDO:
+        raise HTTPException(status_code=400, detail="La mesa no está en juego")
+
+    partida = reconstruir(fila)
+
+    if partida.terminada:
+        # No debería pasar —jugar() liquida en cuanto el motor cierra— pero si
+        # pasara, vale el resultado de la partida y no el reclamo.
+        await _liquidar(db, fila, partida.ganador, partida, JUGADA)
+        await db.commit()
+        await db.refresh(fila)
+        return await _respuesta(db, fila, asiento)
+
+    if jugador_en_turno(partida.mano_actual) == asiento:
+        raise HTTPException(status_code=400, detail="El turno es tuyo, jugá")
+
+    if _segundos_restantes(fila) > 0:
+        raise HTTPException(
+            status_code=400, detail="Todavía está en plazo para jugar"
+        )
+
+    await _liquidar(db, fila, asiento, partida, PLAZO_VENCIDO)
+    await db.commit()
+    await db.refresh(fila)
+
+    return await _respuesta(db, fila, asiento)
+
+
+async def _liquidar(
+    db: AsyncSession,
+    fila: TrucoMesa,
+    ganador: int,
+    partida,
+    motivo: str = JUGADA,
+) -> None:
     pozo = Decimal(fila.apuesta) * 2
     comision = (pozo * COMISION).quantize(CENTAVOS, rounding=ROUND_DOWN)
     premio = pozo - comision
@@ -300,6 +412,7 @@ async def _liquidar(db: AsyncSession, fila: TrucoMesa, ganador: int, partida) ->
     fila.ganador = ganador
     fila.premio = premio
     fila.comision = comision
+    fila.motivo = motivo
 
     ganador_id = fila.jugador_0_id if ganador == 0 else fila.jugador_1_id
 
@@ -328,6 +441,7 @@ async def _liquidar(db: AsyncSession, fila: TrucoMesa, ganador: int, partida) ->
                     "asiento": asiento,
                     "puntos": list(partida.puntos),
                     "ganador": ganador,
+                    "motivo": motivo,
                     "comision": str(comision),
                     "server_seed": fila.server_seed,
                     "server_seed_hash": fila.server_seed_hash,
@@ -349,10 +463,12 @@ async def _respuesta(db: AsyncSession, fila: TrucoMesa, asiento: int) -> dict:
         "pozo": str(Decimal(fila.apuesta) * 2),
         "comision": str(COMISION),
         "premio": str(fila.premio),
+        "motivo": fila.motivo,
         "jugadores": [
             nombres.get(fila.jugador_0_id, "?"),
             nombres.get(fila.jugador_1_id),
         ],
+        "plazo_de_turno": int(PLAZO_DE_TURNO.total_seconds()),
         "server_seed_hash": fila.server_seed_hash,
         "client_seed": fila.client_seed,
         "server_seed": fila.server_seed if fila.estado == TERMINADA else None,
@@ -364,15 +480,22 @@ async def _respuesta(db: AsyncSession, fila: TrucoMesa, asiento: int) -> dict:
         respuesta["puntos"] = [0, 0]
         respuesta["terminada"] = False
         respuesta["ganador"] = None
+        respuesta["me_toca"] = False
+        respuesta["segundos_restantes"] = None
+        respuesta["puedo_reclamar"] = False
         return respuesta
 
     partida = reconstruir(fila)
     respuesta.update(partida.estado(para=asiento))
     respuesta["terminada"] = fila.estado == TERMINADA
     respuesta["ganador"] = fila.ganador
-    respuesta["me_toca"] = (
-        fila.estado == JUGANDO
-        and jugador_en_turno(partida.mano_actual) == asiento
-    )
+
+    en_juego = fila.estado == JUGANDO and not partida.terminada
+    me_toca = en_juego and jugador_en_turno(partida.mano_actual) == asiento
+    restantes = _segundos_restantes(fila) if en_juego else None
+
+    respuesta["me_toca"] = me_toca
+    respuesta["segundos_restantes"] = restantes
+    respuesta["puedo_reclamar"] = bool(en_juego and not me_toca and restantes == 0)
 
     return respuesta

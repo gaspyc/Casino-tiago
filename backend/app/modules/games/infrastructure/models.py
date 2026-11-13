@@ -119,6 +119,11 @@ class TrucoMesa(Base):
     Mismo esquema que la partida contra la casa: se guardan las acciones y la
     partida se reconstruye reproduciéndolas. El asiento 0 es el que creó la
     mesa y el 1 el que se sentó.
+
+    `ultima_accion` es la que hace cumplir el plazo de turno, igual que en las
+    mesas de generala. Sin eso, el que va perdiendo nunca tiene que perder: le
+    alcanza con dejar de jugar, porque el rival sólo puede abandonar —y
+    abandonar es entregar la mesa.
     """
 
     __tablename__ = "truco_mesas"
@@ -140,7 +145,10 @@ class TrucoMesa(Base):
     ganador = Column(Integer, nullable=True)
     premio = Column(Numeric(10, 2), default=0.00, nullable=False)
     comision = Column(Numeric(10, 2), default=0.00, nullable=False)
+    # Cómo terminó: jugada, abandonada o reclamada por plazo vencido.
+    motivo = Column(String, nullable=True)
 
+    ultima_accion = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

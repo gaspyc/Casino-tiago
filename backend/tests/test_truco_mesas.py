@@ -3,6 +3,7 @@
 Necesitan Postgres, así que corren dentro del contenedor.
 """
 
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -99,6 +100,43 @@ async def _mesa_en_juego(apuesta="50.00"):
         await mesas.sentarse(db, beto, mesa["mesa_id"])
 
     return ana, beto, mesa["mesa_id"]
+
+
+async def _fila(mesa_id: int) -> TrucoMesa:
+    async with AsyncSessionLocal() as db:
+        return await db.get(TrucoMesa, mesa_id)
+
+
+async def _ver(user_id: int, mesa_id: int):
+    async with AsyncSessionLocal() as db:
+        return await mesas.ver_mesa(db, user_id, mesa_id)
+
+
+async def _jugar(user_id: int, mesa_id: int, accion: str):
+    async with AsyncSessionLocal() as db:
+        return await mesas.jugar(db, user_id, mesa_id, accion)
+
+
+async def _de_turno(ana: int, beto: int, mesa_id: int):
+    """(el que tiene que hablar, el otro), por id de usuario y por asiento."""
+    vista = await _ver(ana, mesa_id)
+    if vista["me_toca"]:
+        return ana, beto, vista["asiento"]
+
+    return beto, ana, 1 - vista["asiento"]
+
+
+async def _envejecer(mesa_id: int, segundos: int):
+    """Mueve `ultima_accion` para atrás, para no esperar el plazo de verdad."""
+    async with AsyncSessionLocal() as db:
+        fila = await db.get(TrucoMesa, mesa_id)
+        fila.ultima_accion = mesas._ahora() - timedelta(seconds=segundos)
+        await db.commit()
+
+
+async def _una_carta(user_id: int, mesa_id: int) -> str:
+    acciones = (await _ver(user_id, mesa_id))["mano"]["acciones"]
+    return next(a for a in acciones if a.startswith("jugar:"))
 
 
 # ------------------------------ crear y sentarse ------------------------------
@@ -344,3 +382,213 @@ async def test_el_seed_se_revela_recien_al_terminar():
         terminada = await mesas.abandonar(db, ana, mesa_id)
 
     assert terminada["server_seed"] is not None
+
+
+# ------------------------------ el plazo de turno ------------------------------
+
+async def test_el_plazo_corre_para_el_que_tiene_que_hablar():
+    ana, beto, mesa_id = await _mesa_en_juego()
+
+    vista = await _ver(ana, mesa_id)
+
+    assert 0 < vista["segundos_restantes"] <= vista["plazo_de_turno"]
+    assert vista["plazo_de_turno"] == int(mesas.PLAZO_DE_TURNO.total_seconds())
+    assert not vista["puedo_reclamar"]
+
+
+async def test_la_mesa_esperando_rival_no_tiene_reloj():
+    """Mientras no hay con quién jugar no hay turno que vencer."""
+    ana, _ = await _jugadores()
+
+    async with AsyncSessionLocal() as db:
+        mesa = await mesas.crear_mesa(db, ana, Decimal("50.00"))
+
+    assert mesa["segundos_restantes"] is None
+    assert mesa["puedo_reclamar"] is False
+
+
+async def test_vencido_el_plazo_el_rival_reclama_y_se_lleva_el_pozo():
+    """Sin esto, el que va perdiendo nunca tiene que perder: se cuelga."""
+    ana, beto, mesa_id = await _mesa_en_juego()
+    colgado, reclama, _ = await _de_turno(ana, beto, mesa_id)
+
+    await _envejecer(mesa_id, int(mesas.PLAZO_DE_TURNO.total_seconds()) + 5)
+
+    vista = await _ver(reclama, mesa_id)
+    assert vista["puedo_reclamar"]
+    assert vista["segundos_restantes"] == 0
+
+    # El que se colgó no puede reclamarse a sí mismo.
+    assert not (await _ver(colgado, mesa_id))["puedo_reclamar"]
+
+    async with AsyncSessionLocal() as db:
+        cerrada = await mesas.reclamar(db, reclama, mesa_id)
+
+    assert cerrada["terminada"]
+    assert cerrada["ganador"] == cerrada["asiento"]
+    assert cerrada["motivo"] == mesas.PLAZO_VENCIDO
+
+    # pozo 100, comisión 5%, premio 95
+    assert await _saldo(reclama) == Decimal("345.00")
+    assert await _saldo(colgado) == Decimal("250.00")
+
+
+async def test_colgarse_ya_no_es_mejor_que_perder():
+    """El agujero que esto tapa.
+
+    Antes del plazo, al que iba perdiendo le convenía dejar de jugar: el rival
+    sólo podía abandonar, y abandonar entrega la mesa. Colgarse tenía que ser
+    como mínimo tan malo como perder jugando, y ahora lo es.
+    """
+    ana, beto, mesa_id = await _mesa_en_juego()
+    colgado, reclama, _ = await _de_turno(ana, beto, mesa_id)
+
+    await _envejecer(mesa_id, int(mesas.PLAZO_DE_TURNO.total_seconds()) + 1)
+
+    async with AsyncSessionLocal() as db:
+        await mesas.reclamar(db, reclama, mesa_id)
+
+    # Lo mismo que si hubiera perdido la partida jugando: pierde la apuesta.
+    assert await _saldo(colgado) == Decimal("250.00")
+    # Y la mesa quedó cerrada: la plata de los dos no quedó trabada.
+    fila = await _fila(mesa_id)
+    assert fila.estado == mesas.TERMINADA
+
+
+async def test_no_se_reclama_antes_del_plazo():
+    ana, beto, mesa_id = await _mesa_en_juego()
+    _, espera, _ = await _de_turno(ana, beto, mesa_id)
+
+    async with AsyncSessionLocal() as db:
+        with pytest.raises(HTTPException) as error:
+            await mesas.reclamar(db, espera, mesa_id)
+
+        assert error.value.status_code == 400
+        assert "plazo" in error.value.detail.lower()
+
+    assert (await _fila(mesa_id)).estado == mesas.JUGANDO
+
+
+async def test_el_que_tiene_el_turno_no_se_reclama_a_si_mismo():
+    """Colgarse y después quedarse con la mesa sería lo mismo que no jugar."""
+    ana, beto, mesa_id = await _mesa_en_juego()
+    de_turno, _, _ = await _de_turno(ana, beto, mesa_id)
+
+    await _envejecer(mesa_id, int(mesas.PLAZO_DE_TURNO.total_seconds()) + 5)
+
+    async with AsyncSessionLocal() as db:
+        with pytest.raises(HTTPException) as error:
+            await mesas.reclamar(db, de_turno, mesa_id)
+
+        assert error.value.status_code == 400
+
+    assert (await _fila(mesa_id)).estado == mesas.JUGANDO
+
+
+async def test_hablar_tarde_se_acepta_mientras_nadie_reclamo():
+    """El plazo es el reloj del ajedrez: la bandera la tiene que cantar el otro.
+
+    Si rechazara la jugada tardía, una mesa cuyo rival se fue quedaría trabada
+    para siempre con la plata de los dos adentro.
+    """
+    ana, beto, mesa_id = await _mesa_en_juego()
+    de_turno, _, _ = await _de_turno(ana, beto, mesa_id)
+
+    carta = await _una_carta(de_turno, mesa_id)
+    await _envejecer(mesa_id, int(mesas.PLAZO_DE_TURNO.total_seconds()) + 60)
+
+    despues = await _jugar(de_turno, mesa_id, carta)
+
+    assert despues["acciones_jugadas"] == 1
+    # Y el plazo volvió a arrancar para el otro.
+    assert despues["segundos_restantes"] > 0
+
+
+async def test_hablar_renueva_el_plazo():
+    ana, beto, mesa_id = await _mesa_en_juego()
+    de_turno, _, _ = await _de_turno(ana, beto, mesa_id)
+
+    await _envejecer(mesa_id, int(mesas.PLAZO_DE_TURNO.total_seconds()) - 10)
+    antes = (await _ver(ana, mesa_id))["segundos_restantes"]
+
+    await _jugar(de_turno, mesa_id, await _una_carta(de_turno, mesa_id))
+    despues = (await _ver(ana, mesa_id))["segundos_restantes"]
+
+    assert antes < 15 < despues
+
+
+async def test_una_mesa_terminada_no_se_reclama():
+    ana, beto, mesa_id = await _mesa_en_juego()
+
+    async with AsyncSessionLocal() as db:
+        await mesas.abandonar(db, ana, mesa_id)
+
+    await _envejecer(mesa_id, int(mesas.PLAZO_DE_TURNO.total_seconds()) + 5)
+
+    async with AsyncSessionLocal() as db:
+        with pytest.raises(HTTPException) as error:
+            await mesas.reclamar(db, beto, mesa_id)
+
+        assert error.value.status_code == 400
+
+
+async def test_el_que_no_esta_sentado_no_reclama():
+    ana, beto, mesa_id = await _mesa_en_juego()
+    await _envejecer(mesa_id, int(mesas.PLAZO_DE_TURNO.total_seconds()) + 5)
+
+    async with AsyncSessionLocal() as db:
+        ajeno = User(
+            username=ANA + "_z", email=ANA + "z@t.test", hashed_password="x",
+            balance=Decimal("10.00"),
+        )
+        db.add(ajeno)
+        await db.commit()
+
+        with pytest.raises(HTTPException) as error:
+            await mesas.reclamar(db, ajeno.id, mesa_id)
+
+        assert error.value.status_code == 403
+
+        await db.delete(ajeno)
+        await db.commit()
+
+    assert (await _fila(mesa_id)).estado == mesas.JUGANDO
+
+
+# ------------------------------ el motivo ------------------------------
+
+async def test_el_motivo_distingue_como_termino_la_mesa():
+    ana, beto, mesa_id = await _mesa_en_juego()
+
+    jugando = await _ver(ana, mesa_id)
+    assert jugando["motivo"] is None
+
+    async with AsyncSessionLocal() as db:
+        cerrada = await mesas.abandonar(db, ana, mesa_id)
+
+    assert cerrada["motivo"] == mesas.ABANDONO
+    assert (await _fila(mesa_id)).motivo == mesas.ABANDONO
+
+
+async def test_la_mesa_cancelada_sin_rival_queda_como_abandono():
+    ana, _ = await _jugadores()
+
+    async with AsyncSessionLocal() as db:
+        mesa = await mesas.crear_mesa(db, ana, Decimal("50.00"))
+
+    async with AsyncSessionLocal() as db:
+        cerrada = await mesas.abandonar(db, ana, mesa["mesa_id"])
+
+    assert cerrada["motivo"] == mesas.ABANDONO
+    assert await _saldo(ana) == Decimal("300.00")
+
+
+async def test_la_partida_jugada_hasta_el_final_queda_como_jugada():
+    ana, beto, mesa_id = await _mesa_en_juego()
+
+    async with AsyncSessionLocal() as db:
+        fila = await db.get(TrucoMesa, mesa_id)
+        await mesas._liquidar(db, fila, 0, mesas.reconstruir(fila), mesas.JUGADA)
+        await db.commit()
+
+    assert (await _fila(mesa_id)).motivo == mesas.JUGADA

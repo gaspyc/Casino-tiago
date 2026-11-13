@@ -80,6 +80,9 @@ async def listar_mesas(
     return {
         "mesas": await mesas.listar_mesas(db, current_user.id),
         "mi_mesa": mia.id if mia is not None else None,
+        "comision": str(mesas.COMISION),
+        "plazo_de_turno": int(mesas.PLAZO_DE_TURNO.total_seconds()),
+        "apuesta_maxima": str(mesas.APUESTA_MAXIMA),
     }
 
 
@@ -120,6 +123,16 @@ async def jugar_en_mesa(
     current_user: User = Depends(get_current_user),
 ):
     return await mesas.jugar(db, current_user.id, mesa_id, datos.accion)
+
+
+@router.post("/mesas/{mesa_id}/reclamar")
+async def reclamar_mesa(
+    mesa_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Se lleva la mesa porque al rival se le venció el plazo del turno."""
+    return await mesas.reclamar(db, current_user.id, mesa_id)
 
 
 @router.post("/mesas/{mesa_id}/abandonar")
