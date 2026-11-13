@@ -20,7 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.games.generala import bot
-from app.modules.games.generala.partida import Partida
+from app.modules.games.generala.partida import Partida, reconstruir_desde
 from app.modules.games.generala.turno import aplicar_accion
 from app.modules.games.infrastructure.models import Bet, GeneralaPartida
 from app.modules.games.shared.betting import parse_bet_amount
@@ -75,22 +75,13 @@ async def partida_abierta(db: AsyncSession, user_id: int):
 
 def reconstruir(fila: GeneralaPartida) -> Partida:
     """Rehace la partida reproduciendo las acciones guardadas."""
-    partida = Partida(
+    return reconstruir_desde(
         fila.server_seed,
         fila.client_seed,
         fila.nonce,
-        empieza=fila.empieza,
+        fila.empieza,
+        fila.acciones,
     )
-
-    for entrada in fila.acciones:
-        if partida.terminada:
-            break
-
-        aplicar_accion(partida.turno, entrada["accion"])
-        if partida.turno.terminado:
-            partida.cerrar_turno()
-
-    return partida
 
 
 def _avanzar(partida: Partida, acciones: list) -> None:

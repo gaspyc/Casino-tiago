@@ -48,7 +48,7 @@
         <div class="glass-panel game-card" style="border-top-color: #f97316;" @click="router.push('/generala')">
           <div class="game-icon">🎲</div>
           <h3>Generala</h3>
-          <p>Cinco dados contra la casa. Escalera, full, póker y generala. Servida gana en el acto.</p>
+          <p>Cinco dados, contra la casa o mano a mano con otro jugador. Servida gana en el acto.</p>
           <div class="play-btn" style="color: #f97316;">Jugar Generala</div>
         </div>
 

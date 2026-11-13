@@ -11,9 +11,9 @@ sin llenar la planilla.
 
 from app.modules.games.generala.dados import CATEGORIAS, es_generala
 from app.modules.games.generala.fairness import FlujoDeDados
-from app.modules.games.generala.turno import Turno
+from app.modules.games.generala.turno import Turno, aplicar_accion
 
-__all__ = ["JUGADORES", "Partida"]
+__all__ = ["JUGADORES", "Partida", "reconstruir_desde"]
 
 JUGADORES = 2
 
@@ -144,3 +144,30 @@ class Partida:
             estado["turno"]["es_mio"] = para is None or para == self.en_turno
 
         return estado
+
+
+def reconstruir_desde(server_seed, client_seed, nonce, empieza, acciones) -> Partida:
+    """Rehace una partida reproduciendo el registro de acciones.
+
+    Es lo que hace que no haga falta guardar el estado: el flujo de dados se
+    consume en orden, así que las mismas acciones sobre el mismo seed dan
+    exactamente la misma partida. Lo comparten la mesa contra la casa y la
+    mesa entre jugadores, que es donde importa que sea una sola función: si se
+    separaran, una podría empezar a reconstruir distinto que la otra y las
+    partidas ya jugadas dejarían de verificar.
+
+    No valida de quién era el turno. Eso se chequea al aceptar la acción, no
+    al releerla: acá las acciones ya están guardadas y el orden de los turnos
+    lo determina el motor.
+    """
+    partida = Partida(server_seed, client_seed, nonce, empieza=empieza)
+
+    for entrada in acciones:
+        if partida.terminada:
+            break
+
+        aplicar_accion(partida.turno, entrada["accion"])
+        if partida.turno.terminado:
+            partida.cerrar_turno()
+
+    return partida

@@ -1,13 +1,23 @@
 <template>
   <div class="generala-page">
     <div class="glass-panel header-row">
-      <button class="btn-back" @click="router.push('/lobby')">← Volver al Lobby</button>
+      <button class="btn-back" @click="salir">← Volver al Lobby</button>
       <div class="balance">Saldo: ${{ balance }}</div>
     </div>
 
-    <!-- Apostar -->
+    <!-- Elegir contra quién y apostar -->
     <div v-if="!partida" class="glass-panel panel-apuesta">
       <h2 class="titulo">Generala 🎲</h2>
+
+      <div class="modos">
+        <button :class="{ activo: modo === 'casa' }" :disabled="cargando" @click="modo = 'casa'">
+          Contra la casa
+        </button>
+        <button :class="{ activo: modo === 'mesa' }" :disabled="cargando" @click="elegirMesas">
+          Con otro jugador
+        </button>
+      </div>
+
       <p class="bajada">
         Diez categorías, tres tiradas por turno. Gana el que más suma.
         La generala servida gana en el acto.
@@ -19,17 +29,66 @@
         <button :disabled="cargando" @click="ajustar(5)">+</button>
       </div>
 
-      <button
-        class="btn-principal"
-        :disabled="cargando || apuesta > parseFloat(balance)"
-        @click="empezar"
-      >
-        {{ cargando ? 'Repartiendo…' : 'JUGAR' }}
-      </button>
+      <template v-if="modo === 'casa'">
+        <button
+          class="btn-principal"
+          :disabled="cargando || apuesta > parseFloat(balance)"
+          @click="empezar"
+        >
+          {{ cargando ? 'Repartiendo…' : 'JUGAR' }}
+        </button>
 
-      <p class="pago">
-        Si ganás cobrás {{ multiplicador }}× lo apostado. El empate devuelve la apuesta.
+        <p class="pago">
+          Si ganás cobrás {{ multiplicador }}× lo apostado. El empate devuelve la apuesta.
+        </p>
+      </template>
+
+      <template v-else>
+        <button
+          class="btn-principal"
+          :disabled="cargando || apuesta > parseFloat(balance)"
+          @click="crearMesa"
+        >
+          {{ cargando ? 'Creando…' : 'CREAR MESA' }}
+        </button>
+
+        <p class="pago">
+          Los dos ponen la apuesta y el que gana se lleva el pozo menos el
+          {{ comisionPorciento }}% de la casa. Acá la casa no juega: pone la mesa.
+          Tenés {{ plazoDeTurno }} segundos por turno.
+        </p>
+
+        <div class="mesas">
+          <h4>Mesas abiertas</h4>
+          <p v-if="!mesas.length" class="ayuda">No hay ninguna. Creá una y esperá.</p>
+          <div v-for="mesa in mesas" :key="mesa.id" class="mesa-fila">
+            <span>
+              <strong>{{ mesa.creador }}</strong> · ${{ mesa.apuesta }}
+              <em class="pozo">pozo ${{ mesa.pozo }}</em>
+            </span>
+            <button v-if="mesa.puedo_sentarme" :disabled="cargando" @click="sentarse(mesa.id)">
+              Sentarme
+            </button>
+            <span v-else class="ayuda">{{ mesa.estado }}</span>
+          </div>
+        </div>
+      </template>
+
+      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+    </div>
+
+    <!-- Esperando que alguien se siente -->
+    <div v-else-if="partida.estado === 'esperando'" class="glass-panel panel-apuesta">
+      <h2 class="titulo">Esperando rival…</h2>
+      <p class="bajada">
+        Mesa #{{ partida.mesa_id }} · apuesta ${{ partida.apuesta }} · pozo ${{ partida.pozo }}
       </p>
+      <p class="ayuda">
+        Quién arranca sale del seed, así que no lo elige ninguno de los dos.
+      </p>
+      <button class="btn-secundario" :disabled="cargando" @click="abandonar">
+        Cancelar y recuperar la apuesta
+      </button>
       <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
     </div>
 
@@ -37,26 +96,37 @@
     <div v-else class="mesa">
       <div class="glass-panel panel-dados">
         <div class="marcador">
-          <div class="lado" :class="{ activo: partida.en_turno === 0 && !partida.terminada }">
+          <div class="lado" :class="{ activo: enTurno === miAsiento && !terminada }">
             <span class="quien">Vos</span>
-            <strong>{{ partida.totales[0] }}</strong>
+            <strong>{{ partida.totales[miAsiento] }}</strong>
           </div>
           <span class="versus">—</span>
-          <div class="lado" :class="{ activo: partida.en_turno === 1 && !partida.terminada }">
-            <span class="quien">La casa</span>
-            <strong>{{ partida.totales[1] }}</strong>
+          <div class="lado" :class="{ activo: enTurno === suAsiento && !terminada }">
+            <span class="quien">{{ suNombre }}</span>
+            <strong>{{ partida.totales[suAsiento] }}</strong>
           </div>
         </div>
 
-        <div v-if="partida.terminada" class="banner" :class="claseResultado">
+        <div v-if="terminada" class="banner" :class="claseResultado">
           {{ textoResultado }}
         </div>
 
         <template v-else-if="partida.turno">
           <p class="de-quien">
-            {{ miTurno ? 'Tu turno' : 'Juega la casa…' }}
-            <span class="tirada">tirada {{ partida.turno.tirada }} de {{ partida.turno.tiradas_por_turno }}</span>
+            {{ miTurno ? 'Tu turno' : `Juega ${suNombre}…` }}
+            <span class="tirada">
+              tirada {{ partida.turno.tirada }} de {{ partida.turno.tiradas_por_turno }}
+            </span>
             <span v-if="partida.turno.servida" class="servida">servida</span>
+          </p>
+
+          <p
+            v-if="esMesa && partida.segundos_restantes !== null"
+            class="reloj"
+            :class="{ apurado: partida.segundos_restantes <= 15 }"
+          >
+            {{ miTurno ? 'Te quedan' : `A ${suNombre} le quedan` }}
+            {{ partida.segundos_restantes }}s para jugar este turno
           </p>
 
           <div class="dados">
@@ -85,14 +155,29 @@
               Tirar {{ aTirar.length || '' }}
             </button>
           </div>
+
+          <div v-if="partida.puedo_reclamar" class="acciones">
+            <button class="btn-reclamar" :disabled="cargando" @click="reclamar">
+              Se le venció el plazo: llevarme la mesa
+            </button>
+          </div>
         </template>
+
+        <p v-if="esMesa && !terminada" class="pie-mesa">
+          Pozo ${{ partida.pozo }} · comisión {{ comisionPorciento }}%
+          <button class="btn-abandonar" :disabled="cargando" @click="abandonar">
+            Abandonar
+          </button>
+        </p>
+
+        <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
       </div>
 
       <div class="glass-panel panel-planilla">
         <div class="planilla-head">
           <span>Categoría</span>
           <span>Vos</span>
-          <span>Casa</span>
+          <span>{{ esMesa ? abreviado(suNombre) : 'Casa' }}</span>
         </div>
 
         <button
@@ -100,7 +185,7 @@
           :key="categoria"
           class="fila"
           :class="{
-            usada: partida.planillas[0][categoria] !== null,
+            usada: miPlanilla[categoria] !== null,
             anotable: puedeAnotar(categoria),
             cero: puedeAnotar(categoria) && puntosDe(categoria) === 0,
           }"
@@ -109,8 +194,8 @@
         >
           <span class="nombre">{{ NOMBRES[categoria] }}</span>
           <span class="mio">
-            <template v-if="partida.planillas[0][categoria] !== null">
-              {{ partida.planillas[0][categoria] }}
+            <template v-if="miPlanilla[categoria] !== null">
+              {{ miPlanilla[categoria] }}
             </template>
             <template v-else-if="puedeAnotar(categoria)">
               <em class="propuesta">{{ puntosDe(categoria) }}</em>
@@ -118,15 +203,15 @@
             <template v-else>·</template>
           </span>
           <span class="suyo">
-            {{ partida.planillas[1][categoria] === null ? '·' : partida.planillas[1][categoria] }}
+            {{ suPlanilla[categoria] === null ? '·' : suPlanilla[categoria] }}
           </span>
         </button>
 
-        <p v-if="miTurno && !partida.terminada" class="ayuda">
+        <p v-if="miTurno && !terminada" class="ayuda">
           Tocá una categoría para anotar. Si no te sirve ninguna, tenés que tachar una con cero.
         </p>
 
-        <button v-if="partida.terminada" class="btn-principal" @click="limpiar">
+        <button v-if="terminada" class="btn-principal" @click="limpiar">
           JUGAR OTRA
         </button>
       </div>
@@ -139,7 +224,7 @@
         :server-seed="partida.server_seed"
         :can-rotate="false"
         nonce-label="Partida nº"
-        help-text="Los dados de toda la partida salen de un seed comprometido antes de empezar y se consumen en orden. Al terminar se revela el seed y podés rehacer cada tirada."
+        :help-text="textoFairness"
         formula='dado = 1 + (byte de HMAC_SHA256(server_seed, "client_seed:nonce:i") mod 6), con muestreo con rechazo'
       />
     </div>
@@ -147,7 +232,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import confetti from 'canvas-confetti';
 import api from '../shared/api';
@@ -161,21 +246,50 @@ const NOMBRES = {
   escalera: 'Escalera', full: 'Full', poker: 'Póker', generala: 'Generala',
 };
 
+const VACIA = Object.fromEntries(CATEGORIAS.map((categoria) => [categoria, null]));
+
 const router = useRouter();
 const balance = ref('0.00');
 const cargando = ref(false);
 const errorMsg = ref('');
 
+const modo = ref('casa');
 const apuesta = ref(20);
 const partida = ref(null);
+const mesas = ref([]);
 const multiplicador = ref('1.95');
+const comision = ref('0.05');
+const plazoDeTurno = ref(90);
+
+let sondeo = null;
 
 // Los índices que se van a volver a tirar. Arranca en todos: lo normal en la
 // primera tirada es cambiar casi todo.
 const aTirar = ref([0, 1, 2, 3, 4]);
 
+// --------------------------- quién es quién ---------------------------
+// Contra la casa el jugador es siempre el asiento 0; en una mesa depende de si
+// creó la mesa o se sentó. Todo lo que se muestra pasa por acá, así la
+// pantalla es la misma en los dos modos.
+
+const esMesa = computed(() => Boolean(partida.value?.mesa_id));
+const miAsiento = computed(() => (esMesa.value ? partida.value.asiento : 0));
+const suAsiento = computed(() => 1 - miAsiento.value);
+
+const suNombre = computed(() =>
+  esMesa.value ? partida.value.jugadores[suAsiento.value] || 'Rival' : 'La casa',
+);
+
+const abreviado = (nombre) => (nombre || '').slice(0, 7);
+
+const terminada = computed(() => Boolean(partida.value?.terminada));
+const enTurno = computed(() => partida.value?.en_turno);
+
+const miPlanilla = computed(() => partida.value?.planillas?.[miAsiento.value] || VACIA);
+const suPlanilla = computed(() => partida.value?.planillas?.[suAsiento.value] || VACIA);
+
 const miTurno = computed(
-  () => partida.value && !partida.value.terminada && partida.value.en_turno === 0,
+  () => Boolean(partida.value) && !terminada.value && enTurno.value === miAsiento.value,
 );
 const puedeElegir = computed(
   () => miTurno.value && partida.value?.turno?.puede_tirar && !cargando.value,
@@ -183,27 +297,58 @@ const puedeElegir = computed(
 
 const puntosDe = (categoria) => partida.value?.turno?.puntajes?.[categoria] ?? 0;
 const puedeAnotar = (categoria) =>
-  !!miTurno.value && !cargando.value && partida.value?.planillas[0][categoria] === null;
+  !!miTurno.value && !cargando.value && miPlanilla.value[categoria] === null;
+
+const comisionPorciento = computed(() => (parseFloat(comision.value) * 100).toFixed(0));
 
 const claseResultado = computed(() => {
-  if (partida.value?.ganador === 0) return 'gano';
-  if (partida.value?.ganador === 1) return 'perdio';
-  return 'empate';
+  const ganador = partida.value?.ganador;
+  if (ganador === null || ganador === undefined) return 'empate';
+  return ganador === miAsiento.value ? 'gano' : 'perdio';
 });
 
 const textoResultado = computed(() => {
   const estado = partida.value;
   if (!estado) return '';
 
-  const servida = estado.generala_servida_de !== null && estado.generala_servida_de !== undefined;
+  if (estado.motivo === 'plazo_vencido') {
+    return estado.ganador === miAsiento.value
+      ? `⏱ Se le venció el plazo: cobrás $${estado.premio}`
+      : 'Se te venció el plazo del turno y perdiste la mesa';
+  }
+
+  if (estado.motivo === 'abandono') {
+    return estado.ganador === miAsiento.value
+      ? `Abandonó: cobrás $${estado.premio}`
+      : 'Abandonaste la mesa';
+  }
+
+  const servida =
+    estado.generala_servida_de !== null && estado.generala_servida_de !== undefined;
   const cola = servida
-    ? (estado.generala_servida_de === 0 ? ' con generala servida' : ' con generala servida de la casa')
+    ? estado.generala_servida_de === miAsiento.value
+      ? ' con generala servida'
+      : ` con generala servida de ${suNombre.value}`
     : '';
 
-  if (estado.ganador === 0) return `🎲 Ganaste $${Number(estado.payout).toFixed(2)}${cola}`;
-  if (estado.ganador === 1) return `Perdiste${cola}`;
-  return `Empate: vuelve tu apuesta de $${Number(estado.payout).toFixed(2)}`;
+  if (estado.ganador === miAsiento.value) {
+    const cobro = esMesa.value ? estado.premio : estado.payout;
+    return `🎲 Ganaste $${Number(cobro).toFixed(2)}${cola}`;
+  }
+
+  if (estado.ganador === suAsiento.value) return `Perdiste${cola}`;
+
+  const vuelve = esMesa.value ? estado.apuesta : estado.payout;
+  return `Empate: vuelve tu apuesta de $${Number(vuelve).toFixed(2)}`;
 });
+
+const textoFairness = computed(() =>
+  esMesa.value
+    ? 'Los dados de la mesa salen de un seed comprometido antes de que nadie se siente, y se consumen en orden. Quién arranca también sale del seed, con un prefijo aparte para no desplazar ni un dado. Al cerrar la mesa se revela el seed y podés rehacer cada tirada.'
+    : 'Los dados de toda la partida salen de un seed comprometido antes de empezar y se consumen en orden. Al terminar se revela el seed y podés rehacer cada tirada.',
+);
+
+// --------------------------- cargas ---------------------------
 
 const ajustar = (delta) => {
   apuesta.value = Math.max(1, Math.min(500, apuesta.value + delta));
@@ -227,8 +372,46 @@ const cargarReglas = async () => {
   }
 };
 
-// La apuesta se debita al empezar: la partida sin terminar lo está esperando.
+const cargarMesas = async () => {
+  const res = await api.get('/games/generala/mesas');
+  mesas.value = res.data.mesas;
+  comision.value = res.data.comision;
+  plazoDeTurno.value = res.data.plazo_de_turno;
+  return res.data.mi_mesa;
+};
+
+const elegirMesas = async () => {
+  modo.value = 'mesa';
+  errorMsg.value = '';
+  try {
+    await cargarMesas();
+  } catch {
+    mesas.value = [];
+  }
+};
+
+const aplicar = (datos) => {
+  partida.value = datos;
+  // Turno nuevo: por defecto se vuelven a tirar todos.
+  aTirar.value = datos.turno && datos.turno.tirada === 1 ? [0, 1, 2, 3, 4] : [];
+};
+
+// La apuesta se debita al empezar, así que lo que quedó sin terminar está
+// esperando: se retoma antes de ofrecer apostar de nuevo.
 const retomar = async () => {
+  try {
+    const miMesa = await cargarMesas();
+    if (miMesa) {
+      const res = await api.get(`/games/generala/mesas/${miMesa}`);
+      modo.value = 'mesa';
+      aplicar(res.data);
+      arrancarSondeo();
+      return;
+    }
+  } catch {
+    // Sin mesas se sigue con la partida contra la casa.
+  }
+
   try {
     const res = await api.get('/games/generala/partida');
     if (res.data) aplicar(res.data);
@@ -241,19 +424,9 @@ onMounted(async () => {
   await Promise.all([cargarSaldo(), cargarReglas(), retomar()]);
 });
 
-const aplicar = (datos) => {
-  partida.value = datos;
-  // Turno nuevo: por defecto se vuelven a tirar todos.
-  aTirar.value = datos.turno && datos.turno.tirada === 1 ? [0, 1, 2, 3, 4] : [];
-};
+onUnmounted(() => detenerSondeo());
 
-const alternar = (indice) => {
-  if (!puedeElegir.value) return;
-
-  aTirar.value = aTirar.value.includes(indice)
-    ? aTirar.value.filter((otro) => otro !== indice)
-    : [...aTirar.value, indice];
-};
+// --------------------------- contra la casa ---------------------------
 
 const empezar = async () => {
   cargando.value = true;
@@ -273,14 +446,116 @@ const empezar = async () => {
   }
 };
 
-const enviar = async (accion) => {
+// --------------------------- mesas ---------------------------
+
+const crearMesa = async () => {
   cargando.value = true;
   errorMsg.value = '';
 
   try {
-    const res = await api.post('/games/generala/accion', { accion });
+    const res = await api.post('/games/generala/mesas', {
+      bet_amount: apuesta.value.toFixed(2),
+    });
+    aplicar(res.data);
+    await cargarSaldo();
+    arrancarSondeo();
+  } catch (e) {
+    errorMsg.value = e.response?.data?.detail || 'No se pudo crear la mesa';
+  } finally {
+    cargando.value = false;
+  }
+};
+
+const sentarse = async (mesaId) => {
+  cargando.value = true;
+  errorMsg.value = '';
+
+  try {
+    const res = await api.post(`/games/generala/mesas/${mesaId}/sentarse`, {});
+    aplicar(res.data);
+    await cargarSaldo();
+
+    // La generala servida en la primera tirada cierra la mesa acá mismo.
+    if (res.data.terminada) cerrar(res.data);
+    else arrancarSondeo();
+  } catch (e) {
+    errorMsg.value = e.response?.data?.detail || 'No se pudo sentar';
+    await elegirMesas();
+  } finally {
+    cargando.value = false;
+  }
+};
+
+const abandonar = async () => {
+  cargando.value = true;
+  errorMsg.value = '';
+
+  try {
+    const res = await api.post(
+      `/games/generala/mesas/${partida.value.mesa_id}/abandonar`,
+      {},
+    );
+    detenerSondeo();
+    await cargarSaldo();
+
+    // Cancelar una mesa que nadie ocupó vuelve al listado; entregar una mesa
+    // en juego muestra el resultado, como cualquier otra partida.
+    if (res.data.ganador === null) {
+      partida.value = null;
+      await elegirMesas();
+    } else {
+      aplicar(res.data);
+    }
+  } catch (e) {
+    errorMsg.value = e.response?.data?.detail || 'No se pudo abandonar';
+  } finally {
+    cargando.value = false;
+  }
+};
+
+const reclamar = async () => {
+  cargando.value = true;
+  errorMsg.value = '';
+
+  try {
+    const res = await api.post(
+      `/games/generala/mesas/${partida.value.mesa_id}/reclamar`,
+      {},
+    );
+    detenerSondeo();
+    aplicar(res.data);
+    await cargarSaldo();
+    cerrar(res.data);
+  } catch (e) {
+    errorMsg.value = e.response?.data?.detail || 'No se pudo reclamar';
+  } finally {
+    cargando.value = false;
+  }
+};
+
+// --------------------------- jugar ---------------------------
+
+const alternar = (indice) => {
+  if (!puedeElegir.value) return;
+
+  aTirar.value = aTirar.value.includes(indice)
+    ? aTirar.value.filter((otro) => otro !== indice)
+    : [...aTirar.value, indice];
+};
+
+const enviar = async (accion) => {
+  cargando.value = true;
+  errorMsg.value = '';
+
+  const ruta = esMesa.value
+    ? `/games/generala/mesas/${partida.value.mesa_id}/accion`
+    : '/games/generala/accion';
+
+  try {
+    const res = await api.post(ruta, { accion });
     aplicar(res.data);
     if (res.data.terminada) {
+      detenerSondeo();
       await cargarSaldo();
       cerrar(res.data);
     }
@@ -299,15 +574,65 @@ const tirar = () => {
 const anotar = (categoria) => enviar(`anotar:${categoria}`);
 
 const cerrar = (datos) => {
-  if (datos.ganador === 0) {
+  if (datos.ganador === miAsiento.value) {
     confetti({ particleCount: 110, spread: 80, origin: { y: 0.6 } });
   }
 };
 
-const limpiar = () => {
+const limpiar = async () => {
+  detenerSondeo();
   partida.value = null;
   errorMsg.value = '';
+  if (modo.value === 'mesa') await elegirMesas();
 };
+
+const salir = () => {
+  detenerSondeo();
+  router.push('/lobby');
+};
+
+// --------------------------- sondeo ---------------------------
+// Mientras le toca al rival el cliente pregunta cada dos segundos. Para un
+// juego por turnos alcanza y evita mantener una conexión abierta. El reloj del
+// turno se actualiza con la misma respuesta, así que no hace falta un contador
+// aparte que pueda desincronizarse del servidor.
+
+const refrescarMesa = async () => {
+  if (!esMesa.value || terminada.value || cargando.value) return;
+
+  try {
+    const res = await api.get(`/games/generala/mesas/${partida.value.mesa_id}`);
+    const avanzo = res.data.acciones_jugadas !== partida.value.acciones_jugadas;
+
+    // Si no pasó nada nuevo, los dados elegidos no se pisan: el jugador podría
+    // estar justo tildando cuáles guardar.
+    if (avanzo) aplicar(res.data);
+    else partida.value = res.data;
+
+    if (avanzo || res.data.terminada) await cargarSaldo();
+
+    if (res.data.terminada) {
+      detenerSondeo();
+      cerrar(res.data);
+    }
+  } catch {
+    // Un error puntual no corta la partida: se reintenta en el próximo sondeo.
+  }
+};
+
+const arrancarSondeo = () => {
+  detenerSondeo();
+  sondeo = setInterval(refrescarMesa, 2000);
+};
+
+// Declarada con `function` a propósito: se usa en onUnmounted, que se registra
+// antes de esta línea.
+function detenerSondeo() {
+  if (sondeo) {
+    clearInterval(sondeo);
+    sondeo = null;
+  }
+}
 </script>
 
 <style scoped>
@@ -360,6 +685,28 @@ const limpiar = () => {
   margin: 0 0 20px;
 }
 
+.modos {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.modos button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.modos button.activo {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: var(--primary);
+  color: var(--text-main);
+}
+
 .bet-controls {
   display: flex;
   align-items: center;
@@ -402,16 +749,74 @@ const limpiar = () => {
   cursor: default;
 }
 
+.btn-secundario {
+  width: 100%;
+  margin-top: 14px;
+  padding: 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btn-secundario:hover {
+  color: var(--text-main);
+  border-color: var(--primary);
+}
+
 .pago {
   margin: 14px 0 0;
   font-size: 0.75rem;
   color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .error-msg {
   margin-top: 12px;
   color: #f87171;
   font-size: 0.82rem;
+}
+
+.mesas {
+  margin-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 12px;
+  text-align: left;
+}
+
+.mesas h4 {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+}
+
+.mesa-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.82rem;
+}
+
+.mesa-fila .pozo {
+  font-style: normal;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  margin-left: 6px;
+}
+
+.mesa-fila button {
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--primary);
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 
 .mesa {
@@ -485,6 +890,17 @@ const limpiar = () => {
   padding: 1px 6px;
 }
 
+.reloj {
+  text-align: center;
+  margin: -8px 0 14px;
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+.reloj.apurado {
+  color: #fbbf24;
+}
+
 .dados {
   display: flex;
   justify-content: center;
@@ -538,6 +954,44 @@ const limpiar = () => {
 .btn-tirar:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.btn-reclamar {
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: 1px solid #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pie-mesa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+.btn-abandonar {
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+
+.btn-abandonar:hover {
+  color: #f87171;
+  border-color: #f87171;
 }
 
 .ayuda {

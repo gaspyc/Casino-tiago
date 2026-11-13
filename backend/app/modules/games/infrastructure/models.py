@@ -237,3 +237,44 @@ class GeneralaPartida(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class GeneralaMesa(Base):
+    """Una mesa de generala entre dos jugadores.
+
+    Mismo esquema que la partida contra la casa y que las mesas de truco: se
+    guardan las acciones y la partida se rehace reproduciéndolas. El asiento 0
+    es el que creó la mesa y el 1 el que se sentó.
+
+    `ultima_accion` es la que hace cumplir el plazo de turno. Sin eso, el que
+    va perdiendo nunca tiene que perder: le alcanza con dejar de jugar, porque
+    el rival sólo puede abandonar —y abandonar es entregar la mesa.
+    """
+
+    __tablename__ = "generala_mesas"
+
+    id = Column(Integer, primary_key=True, index=True)
+    jugador_0_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    jugador_1_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+
+    apuesta = Column(Numeric(10, 2), nullable=False)
+    estado = Column(String, default="esperando", nullable=False)  # esperando, jugando, terminada
+
+    server_seed = Column(String, nullable=False)
+    server_seed_hash = Column(String, nullable=False)
+    client_seed = Column(String, nullable=False)
+    nonce = Column(Integer, nullable=False)
+
+    # Quién arranca. Sale del seed, no lo elige ninguno de los dos.
+    empieza = Column(Integer, default=0, nullable=False)
+
+    acciones = Column(JSONB, default=list, nullable=False)
+    ganador = Column(Integer, nullable=True)  # asiento, o None si empataron
+    premio = Column(Numeric(10, 2), default=0.00, nullable=False)
+    comision = Column(Numeric(10, 2), default=0.00, nullable=False)
+    # Cómo terminó: jugada, abandonada o reclamada por plazo vencido.
+    motivo = Column(String, nullable=True)
+
+    ultima_accion = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
