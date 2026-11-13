@@ -3,16 +3,19 @@
     python -m app.modules.games.generala.simular figuras 20000
     python -m app.modules.games.generala.simular partidas 2000
     python -m app.modules.games.generala.simular contra-simple 2000
+    python -m app.modules.games.generala.simular pagos 2000
 """
 
 import sys
 from collections import Counter
+from decimal import Decimal
 
 from app.modules.games.generala import bot
 from app.modules.games.generala.dados import (
     CATEGORIAS,
     CATEGORIAS_NUMERICAS,
     PUNTAJE_ARMADA,
+    es_generala,
     puntaje,
 )
 from app.modules.games.generala.partida import Partida
@@ -167,6 +170,17 @@ def _politica_simple(partida, jugador):
 
     Aísla cuánto vale la parte de elegir dónde anotar: lo único que lo separa
     del bot es el orden de sacrificio y no quemar filas caras.
+
+    OJO: esto NO es una línea de base débil, aunque el nombre lo sugiera.
+    Elige los dados llamando a `bot.elegir_dados`, así que cuando al bot se le
+    puso el cálculo exacto esta política se volvió fuerte sola, sin que nadie
+    la tocara. Medida: saca el mismo puntaje que la calculadora. El piso de
+    verdad es `_politica_heuristica`, que tiene su propia copia congelada de
+    cómo elegía los dados el bot viejo, justamente para no contagiarse.
+
+    Ya me comió una conclusión una vez: con esta política como "rival tonto"
+    parecía que en la generala pensar no pagaba nada, y lo que pasaba era que
+    el rival tonto estaba pensando igual que el bot.
     """
     turno = partida.turno
     if turno.puede_tirar:
@@ -331,7 +345,7 @@ def rivales(vueltas: int) -> None:
     for nombre, rival in (
         ("azarosa (piso)", _politica_azarosa),
         ("heuristica (humano)", _politica_heuristica),
-        ("simple (solo anotar)", _politica_simple),
+        ("dados del bot, anota max", _politica_simple),
         ("calculadora (techo)", _politica_calculadora),
     ):
         tasa, propios, ajenos = _duelo_politicas(vueltas, bot.decidir, rival, semilla)
@@ -476,6 +490,122 @@ def ordenes(vueltas: int) -> None:
         print("%-16s | %8.1f%% | %8.1f | %.1f" % (nombre, tasa * 100, propios, ajenos))
 
 
+# ------------------------------ la tabla de pagos ------------------------------
+
+def _politica_optima(partida, jugador):
+    """El juego perfecto, resuelto por programación dinámica en `optimo.py`."""
+    from app.modules.games.generala.optimo import jugada_optima
+    from app.modules.games.generala.pagos import (
+        PREMIO_SERVIDA,
+        PUNTAJE_DE_EQUILIBRIO,
+    )
+
+    # El premio en puntos: con pago afín, un premio de J multiplicadores
+    # equivale a J/a puntos. Hace falta para que el óptimo cuide la generala.
+    bonus = float(PREMIO_SERVIDA) * PUNTAJE_DE_EQUILIBRIO
+
+    turno = partida.turno
+    que, cual = jugada_optima(turno.dados, turno.disponibles, turno.tirada, bonus)
+
+    if que == "anotar":
+        return "anotar:%s" % cual
+
+    return "tirar:%s" % ",".join(str(indice) for indice in cual)
+
+
+def _planilla(politica, semilla, nonce):
+    """Juega una planilla entera y devuelve (puntaje, anotó generala servida).
+
+    corta_servida_de=() porque en el modo que paga por puntaje la servida no
+    corta la partida: la de la casa no tiene por qué cortarte —sería sacarte
+    plata con un volado que no jugaste— y la tuya se cobra aparte.
+    """
+    partida = Partida(semilla, "pagos", nonce, empieza=0, corta_servida_de=())
+    servida = False
+
+    while not partida.terminada:
+        turno = partida.turno
+        # Ojo: no alcanza con que salgan cinco iguales. El premio es por
+        # ANOTAR la generala servida; si la fila ya se usó, no hay premio.
+        podia = partida.en_turno == 0 and turno.servida and es_generala(turno.dados)
+
+        aplicar_accion(turno, politica(partida, partida.en_turno))
+
+        if podia and turno.terminado and turno.categoria == "generala":
+            servida = True
+
+        if partida.turno.terminado:
+            partida.cerrar_turno()
+
+    return partida.total(0), servida
+
+
+def pagos(vueltas: int) -> None:
+    """El RTP de cada política bajo la tabla de pagos, contra el techo exacto.
+
+    El techo no se simula, se resuelve. Es la diferencia entre saber la
+    ventaja de la casa y estimarla con el mejor bot que uno pudo escribir.
+    """
+    from app.modules.games.generala.optimo import techo_del_pago
+    from app.modules.games.generala.pagos import (
+        PREMIO_SERVIDA,
+        PUNTAJE_DE_EQUILIBRIO,
+        RTP_OBJETIVO,
+        premio,
+    )
+
+    por_punto = 1.0 / PUNTAJE_DE_EQUILIBRIO
+    techo = techo_del_pago(0.0, por_punto, float(PREMIO_SERVIDA))
+
+    print("equilibrio %s puntos, servida paga %sx aparte"
+          % (PUNTAJE_DE_EQUILIBRIO, PREMIO_SERVIDA))
+    print("techo exacto (juego perfecto): %.2f%%   objetivo %.2f%%"
+          % (100 * techo, 100 * float(RTP_OBJETIVO)))
+    print()
+
+    semilla = generar_server_seed()
+    apuesta = Decimal("100.00")
+
+    print("%-22s | puntos | servida | RTP    | sigma" % "politica")
+    print("-" * 66)
+
+    for nombre, politica in (
+        ("optimo (con premio)", _politica_optima),
+        ("bot de la casa", bot.decidir),
+        ("calculadora (1 vista)", _politica_calculadora),
+        ("heuristica (casual)", _politica_heuristica),
+        ("azarosa (piso)", _politica_azarosa),
+    ):
+        suma_puntos = 0
+        servidas = 0
+        pagado = []
+
+        for nonce in range(vueltas):
+            puntaje, servida = _planilla(politica, semilla, nonce)
+            suma_puntos += puntaje
+            servidas += 1 if servida else 0
+            pagado.append(float(premio(apuesta, puntaje, servida)) / 100.0)
+
+        media = sum(pagado) / len(pagado)
+        varianza = sum((x - media) ** 2 for x in pagado) / len(pagado)
+
+        print("%-22s | %6.1f | %6.2f%% | %5.1f%% | %5.2f"
+              % (nombre, suma_puntos / vueltas, 100 * servidas / vueltas,
+                 100 * media, varianza ** 0.5))
+
+        if media > techo + 0.02:
+            print("   *** %s le gana al techo: la tabla esta mal calibrada" % nombre)
+
+    print()
+    print("con pago binario 1.95x era: optimo ~93.9%, casual 68.6%")
+    print()
+    print("OJO con pocas vueltas: la servida sale una vez cada ~160 planillas y")
+    print("paga 17x, asi que aporta ~13% del RTP con muy pocos eventos. Con")
+    print("%s vueltas son ~%d servidas por politica y el RTP baila varios puntos."
+          % (vueltas, vueltas * 0.0063))
+    print("Los numeros del docstring de pagos.py son sobre 400.000 planillas.")
+
+
 if __name__ == "__main__":
     comando = sys.argv[1] if len(sys.argv) > 1 else "figuras"
     vueltas = int(sys.argv[2]) if len(sys.argv) > 2 else 2000
@@ -486,4 +616,5 @@ if __name__ == "__main__":
         "contra-simple": contra_simple,
         "ordenes": ordenes,
         "rivales": rivales,
+        "pagos": pagos,
     }[comando](vueltas)

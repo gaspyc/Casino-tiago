@@ -11,9 +11,9 @@ from app.modules.games.generala.dados import (
     PUNTAJE_SERVIDA,
 )
 from app.modules.games.generala.schemas import GeneralaAccion, GeneralaEmpezar
+from app.modules.games.generala import pagos
 from app.modules.games.generala.service import (
     APUESTA_MAXIMA,
-    MULTIPLICADOR_DE_PAGO,
     empezar_partida,
     jugar_accion,
     partida_abierta,
@@ -37,9 +37,16 @@ async def ver_reglas():
         "puntaje_armada": PUNTAJE_ARMADA,
         "puntaje_servida": PUNTAJE_SERVIDA,
         "escaleras": ["1-2-3-4-5", "2-3-4-5-6"],
-        "generala_servida_gana": True,
         "apuesta_maxima": str(APUESTA_MAXIMA),
-        "multiplicador": str(MULTIPLICADOR_DE_PAGO),
+        # Contra la casa se cobra por puntaje, así que la servida no corta la
+        # partida: se paga aparte. En la mesa entre jugadores sí corta, que es
+        # la regla clásica.
+        "generala_servida_gana": False,
+        "paga_por_puntaje": True,
+        "equilibrio": pagos.PUNTAJE_DE_EQUILIBRIO,
+        "premio_servida": str(pagos.PREMIO_SERVIDA),
+        "tabla": pagos.tabla_de_referencia(),
+        "mesa_generala_servida_gana": True,
     }
 
 

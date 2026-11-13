@@ -243,6 +243,17 @@ class GeneralaPartida(Base):
     terminada = Column(Boolean, default=False, nullable=False)
     ganador = Column(Integer, nullable=True)  # 0 el jugador, 1 la casa, None empate
 
+    # Cómo se paga esta partida. Las viejas pagaban 1,95x por ganarle a la
+    # casa; las nuevas pagan por puntaje. Se guarda por partida y no se mira
+    # una constante global porque las dos modalidades se juegan con reglas
+    # distintas —con pago por puntaje la generala servida no corta— y las
+    # acciones guardadas sólo rehacen la partida bajo la regla con la que se
+    # jugó. Sin esta columna, cambiar el pago rompería la verificación de todo
+    # lo ya jugado.
+    paga_por_puntaje = Column(Boolean, default=True, nullable=False)
+    puntaje = Column(Integer, nullable=True)
+    multiplicador = Column(Numeric(10, 4), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

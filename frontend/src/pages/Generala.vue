@@ -18,7 +18,11 @@
         </button>
       </div>
 
-      <p class="bajada">
+      <p v-if="modo === 'casa'" class="bajada">
+        Diez categorías, tres tiradas por turno. Llenás la planilla entera y
+        cobrás por lo que sumaste.
+      </p>
+      <p v-else class="bajada">
         Diez categorías, tres tiradas por turno. Gana el que más suma.
         La generala servida gana en el acto.
       </p>
@@ -39,8 +43,17 @@
         </button>
 
         <p class="pago">
-          Si ganás cobrás {{ multiplicador }}× lo apostado. El empate devuelve la apuesta.
+          Cobrás por puntaje, no por ganarle a la casa: cada punto paga, y
+          <strong>{{ equilibrio }} puntos te devuelven la apuesta</strong>.
+          Anotar la generala servida paga {{ premioServida }}× aparte.
         </p>
+
+        <div class="tabla-pagos">
+          <div v-for="fila in tablaPagos" :key="fila.puntaje" class="fila-pago">
+            <span>{{ fila.puntaje }} puntos</span>
+            <strong>{{ Number(fila.multiplicador).toFixed(2) }}×</strong>
+          </div>
+        </div>
       </template>
 
       <template v-else>
@@ -106,6 +119,18 @@
             <strong>{{ partida.totales[suAsiento] }}</strong>
           </div>
         </div>
+
+        <p v-if="!esMesa && partida.puntaje !== undefined" class="cobro">
+          <span class="cobro-puntos">{{ partida.puntaje }} puntos</span>
+          <span class="cobro-flecha">→</span>
+          <span class="cobro-plata">${{ partida.proyeccion }}</span>
+          <span class="cobro-detalle">
+            {{ Number(partida.multiplicador).toFixed(2) }}× · empatás en {{ equilibrio }}
+            <template v-if="partida.generala_servida">
+              · +{{ premioServida }}× por la servida
+            </template>
+          </span>
+        </p>
 
         <div v-if="terminada" class="banner" :class="claseResultado">
           {{ textoResultado }}
@@ -257,9 +282,14 @@ const modo = ref('casa');
 const apuesta = ref(20);
 const partida = ref(null);
 const mesas = ref([]);
-const multiplicador = ref('1.95');
 const comision = ref('0.05');
 const plazoDeTurno = ref(90);
+
+// La tabla de pagos contra la casa. Viene del servidor para que la
+// pantalla no pueda quedar diciendo un pago distinto del que se liquida.
+const equilibrio = ref(175);
+const premioServida = ref('17');
+const tablaPagos = ref([]);
 
 let sondeo = null;
 
@@ -302,7 +332,18 @@ const puedeAnotar = (categoria) =>
 const comisionPorciento = computed(() => (parseFloat(comision.value) * 100).toFixed(0));
 
 const claseResultado = computed(() => {
-  const ganador = partida.value?.ganador;
+  const estado = partida.value;
+  if (!estado) return 'empate';
+
+  // Contra la casa el verde o el rojo los decide la plata, no el duelo.
+  if (!esMesa.value) {
+    const cobro = Number(estado.payout);
+    const apostado = Number(estado.apuesta);
+    if (cobro > apostado) return 'gano';
+    return cobro === apostado ? 'empate' : 'perdio';
+  }
+
+  const ganador = estado.ganador;
   if (ganador === null || ganador === undefined) return 'empate';
   return ganador === miAsiento.value ? 'gano' : 'perdio';
 });
@@ -331,15 +372,24 @@ const textoResultado = computed(() => {
       : ` con generala servida de ${suNombre.value}`
     : '';
 
+  // Contra la casa el resultado es lo que cobrás por tu planilla. Quién
+  // sumó más no entra: decirlo como ganar o perder sería mentir sobre de
+  // qué depende la plata.
+  if (!esMesa.value) {
+    const cobro = Number(estado.payout);
+    const servida = estado.generala_servida ? ' 🎲 ¡generala servida!' : '';
+    const verbo = cobro >= Number(estado.apuesta) ? 'cobrás' : 'te quedan';
+    return `${estado.puntaje} puntos · ${verbo} $${cobro.toFixed(2)}`
+      + ` (${Number(estado.multiplicador).toFixed(2)}×)${servida}`;
+  }
+
   if (estado.ganador === miAsiento.value) {
-    const cobro = esMesa.value ? estado.premio : estado.payout;
-    return `🎲 Ganaste $${Number(cobro).toFixed(2)}${cola}`;
+    return `🎲 Ganaste $${Number(estado.premio).toFixed(2)}${cola}`;
   }
 
   if (estado.ganador === suAsiento.value) return `Perdiste${cola}`;
 
-  const vuelve = esMesa.value ? estado.apuesta : estado.payout;
-  return `Empate: vuelve tu apuesta de $${Number(vuelve).toFixed(2)}`;
+  return `Empate: vuelve tu apuesta de $${Number(estado.apuesta).toFixed(2)}`;
 });
 
 const textoFairness = computed(() =>
@@ -366,9 +416,11 @@ const cargarSaldo = async () => {
 const cargarReglas = async () => {
   try {
     const res = await api.get('/games/generala/reglas');
-    multiplicador.value = res.data.multiplicador;
+    equilibrio.value = res.data.equilibrio;
+    premioServida.value = Number(res.data.premio_servida).toFixed(0);
+    tablaPagos.value = res.data.tabla;
   } catch {
-    // Si falla queda el valor por defecto, que es sólo informativo.
+    // Si falla quedan los valores por defecto, que son sólo informativos.
   }
 };
 
@@ -574,7 +626,11 @@ const tirar = () => {
 const anotar = (categoria) => enviar(`anotar:${categoria}`);
 
 const cerrar = (datos) => {
-  if (datos.ganador === miAsiento.value) {
+  const gano = esMesa.value
+    ? datos.ganador === miAsiento.value
+    : Number(datos.payout) > Number(datos.apuesta);
+
+  if (gano) {
     confetti({ particleCount: 110, spread: 80, origin: { y: 0.6 } });
   }
 };
@@ -888,6 +944,62 @@ function detenerSondeo() {
   border: 1px solid currentColor;
   border-radius: 6px;
   padding: 1px 6px;
+}
+
+.tabla-pagos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.fila-pago {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+
+.fila-pago strong {
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.cobro {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.cobro-puntos {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.cobro-flecha {
+  color: var(--text-muted);
+}
+
+.cobro-plata {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--accent-green, #22c55e);
+}
+
+.cobro-detalle {
+  width: 100%;
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--text-muted);
 }
 
 .reloj {

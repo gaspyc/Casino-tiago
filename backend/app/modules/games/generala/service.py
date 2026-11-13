@@ -6,20 +6,28 @@ puro. Acá eso además es lo que hace verificables los dados, porque el flujo se
 consume en orden: repetir las mismas acciones sobre el mismo seed devuelve
 exactamente las mismas tiradas.
 
-La plata: el jugador apuesta al empezar y cobra `MULTIPLICADOR_DE_PAGO` si gana.
-El empate devuelve la apuesta, que en la generala no es un caso raro de manual
-—pasa cerca de una vez cada cien partidas— y había que decidirlo: quedársela
-sería cobrarle a los dos por no perder.
+La plata: se cobra por PUNTAJE, no por ganarle a la casa. Cuánto paga cada
+puntaje está en `pagos.py`, con la medición que lo justifica. Acá alcanza con
+saber por qué: con pago binario la brecha de retorno entre un casual y un
+experto era 1,37x sobre una diferencia de puntaje de 1,20x, porque ganar o
+perder es un umbral y cerca del umbral unos pocos puntos deciden toda la
+apuesta. El casual dejaba el 31%.
+
+La casa sigue jugando y su puntaje se muestra, pero no decide lo que cobrás.
+Y como no lo decide, su generala servida ya no corta la partida: cortarla
+sería sacarte plata con un volado que no jugaste. La tuya tampoco corta, y se
+paga aparte. El duelo clásico —servida gana en el acto, gana el que más
+suma— vive en la mesa entre jugadores, en `mesas.py`.
 """
 
-from decimal import ROUND_DOWN, Decimal
+from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.games.generala import bot
+from app.modules.games.generala import bot, pagos
 from app.modules.games.generala.partida import Partida, reconstruir_desde
 from app.modules.games.generala.turno import aplicar_accion
 from app.modules.games.infrastructure.models import Bet, GeneralaPartida
@@ -36,30 +44,20 @@ GAME_ID = "generala"
 JUGADOR = 0
 CASA = 1
 
-# Medido con `simular.py rivales`, 1500 partidas por rival, bot a full:
-#
-#   rival                        gana el jugador   pago de equilibrio
-#   calculadora (1 tirada vista)      47.7%              2.078
-#   heuristica (humano razonable)     35.0%              2.848
-#
-# Con 1.95 le vuelve el 93.9% de lo apostado al que juega al maximo y el 68.6%
-# al que juega como en una mesa. Queda abajo del equilibrio del techo a
-# proposito: ese techo mira una sola tirada adelante, y un jugador con una
-# tabla de programacion dinamica juega mejor que eso.
-#
-# Lo que hay que saber antes de tocar este numero: el spread entre esos dos
-# RTP no se arregla con el multiplicador. Con pago binario por ganar o perder,
-# la diferencia de retorno entre un casual y un experto es exactamente la
-# diferencia de habilidad, y mover el multiplicador los desplaza a los dos
-# juntos. Bajarle el nivel al bot (`bot.PROBABILIDAD_DE_CALCULAR`) tampoco:
-# medido en 0.0, el casual pasa a 49.4% de victorias y el experto a 66.6%, o
-# sea el mismo spread corrido. Para que el casual no deje el 31% hay que
-# cambiar la forma del pago —pagar por puntaje y no por ganar— y eso es una
-# decision de producto, no un ajuste.
-MULTIPLICADOR_DE_PAGO = Decimal("1.95")
+# Quién corta la partida con una generala servida. Nadie: pagando por
+# puntaje, la servida de la casa no tiene por qué cortarte —no jugaste ese
+# volado y te recortaría la planilla— y la tuya se cobra aparte, sin
+# necesidad de terminar la partida antes.
+CORTA_SERVIDA_DE = ()
 
-APUESTA_MAXIMA = Decimal("500.00")
-CENTAVOS = Decimal("0.01")
+# La regla con la que se jugaban las partidas viejas, que pagaban 1,95x por
+# ganarle a la casa. Se conserva para que sigan reconstruyendo igual: con otra
+# regla las mismas acciones dan otra partida y dejan de verificar. Lo que
+# cobraron ya está guardado en cada fila, así que el multiplicador viejo no
+# hace falta tenerlo acá.
+CORTA_SERVIDA_DE_LAS_VIEJAS = (0, 1)
+
+APUESTA_MAXIMA = pagos.APUESTA_MAXIMA
 
 
 async def partida_abierta(db: AsyncSession, user_id: int):
@@ -74,13 +72,22 @@ async def partida_abierta(db: AsyncSession, user_id: int):
 
 
 def reconstruir(fila: GeneralaPartida) -> Partida:
-    """Rehace la partida reproduciendo las acciones guardadas."""
+    """Rehace la partida reproduciendo las acciones guardadas.
+
+    La regla de la servida sale de la fila, no de la constante de hoy: una
+    partida jugada con la regla vieja tiene que seguir rehaciéndose con la
+    regla vieja o deja de verificar.
+    """
+    corta = (
+        CORTA_SERVIDA_DE if fila.paga_por_puntaje else CORTA_SERVIDA_DE_LAS_VIEJAS
+    )
     return reconstruir_desde(
         fila.server_seed,
         fila.client_seed,
         fila.nonce,
         fila.empieza,
         fila.acciones,
+        corta_servida_de=corta,
     )
 
 
@@ -216,15 +223,14 @@ async def _liquidar(db: AsyncSession, fila: GeneralaPartida, partida: Partida) -
     fila.terminada = True
     fila.ganador = partida.ganador
 
-    if partida.ganador is None:
-        # Empate: vuelve la apuesta, ni ganó ni perdió.
-        pago = Decimal(fila.apuesta)
-    elif partida.ganador == JUGADOR:
-        pago = (Decimal(fila.apuesta) * MULTIPLICADOR_DE_PAGO).quantize(
-            CENTAVOS, rounding=ROUND_DOWN
-        )
-    else:
-        pago = Decimal("0.00")
+    puntaje = partida.total(JUGADOR)
+    servida = partida.anoto_generala_servida(JUGADOR)
+
+    fila.puntaje = puntaje
+    fila.multiplicador = pagos.multiplicador(puntaje, servida)
+    # El pago sale de la fracción exacta, no del multiplicador mostrado:
+    # truncar y después multiplicar se come RTP en los pagos chicos.
+    pago = pagos.premio(Decimal(fila.apuesta), puntaje, servida)
 
     fila.payout = pago
 
@@ -245,6 +251,10 @@ async def _liquidar(db: AsyncSession, fila: GeneralaPartida, partida: Partida) -
             bet_amount=fila.apuesta,
             payout=fila.payout,
             result_data={
+                "puntaje": puntaje,
+                "generala_servida": servida,
+                "multiplicador": str(fila.multiplicador),
+                "equilibrio": pagos.PUNTAJE_DE_EQUILIBRIO,
                 "totales": [partida.total(0), partida.total(1)],
                 "ganador": partida.ganador,
                 "generala_servida_de": partida.generala_servida_de,
@@ -262,7 +272,21 @@ def _respuesta(fila: GeneralaPartida, partida: Partida) -> dict:
     estado["partida_id"] = fila.id
     estado["apuesta"] = str(fila.apuesta)
     estado["payout"] = str(fila.payout)
-    estado["multiplicador"] = str(MULTIPLICADOR_DE_PAGO)
+    # Lo que cobrarías si la partida cerrara con la planilla como está. Es
+    # información honesta y además es la que hace entendible el pago: el
+    # jugador ve subir el número a medida que anota.
+    puntaje = partida.total(JUGADOR)
+    servida = partida.anoto_generala_servida(JUGADOR)
+
+    estado["puntaje"] = puntaje
+    estado["generala_servida"] = servida
+    estado["multiplicador"] = str(pagos.multiplicador(puntaje, servida))
+    estado["equilibrio"] = pagos.PUNTAJE_DE_EQUILIBRIO
+    estado["premio_servida"] = str(pagos.PREMIO_SERVIDA)
+    estado["paga_por_puntaje"] = bool(fila.paga_por_puntaje)
+    estado["proyeccion"] = str(
+        pagos.premio(Decimal(fila.apuesta), puntaje, servida)
+    )
     estado["server_seed_hash"] = fila.server_seed_hash
     estado["client_seed"] = fila.client_seed
     estado["nonce"] = fila.nonce

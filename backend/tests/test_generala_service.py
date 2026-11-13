@@ -12,11 +12,11 @@ try:
     from fastapi import HTTPException
     from sqlalchemy import delete, select, text
 
+    from app.modules.games.generala import pagos
     from app.modules.games.generala.service import (
         APUESTA_MAXIMA,
         CASA,
         JUGADOR,
-        MULTIPLICADOR_DE_PAGO,
         empezar_partida,
         jugar_accion,
         partida_abierta,
@@ -234,37 +234,44 @@ async def test_la_partida_termina_y_la_plata_cierra():
     estado = await _jugar_hasta_el_final(user_id, estado)
 
     assert estado["terminada"]
-    saldo = await _saldo(user_id)
 
-    if estado["ganador"] == JUGADOR:
-        pago = (APUESTA * MULTIPLICADOR_DE_PAGO).quantize(Decimal("0.01"))
-        assert saldo == SALDO - APUESTA + pago
-    elif estado["ganador"] == CASA:
-        assert saldo == SALDO - APUESTA
-    else:
-        # Empate: vuelve la apuesta.
-        assert saldo == SALDO
+    esperado = pagos.premio(
+        APUESTA, estado["puntaje"], estado["generala_servida"]
+    )
+    assert Decimal(estado["payout"]) == esperado
+    assert await _saldo(user_id) == SALDO - APUESTA + esperado
 
 
-async def test_el_empate_devuelve_la_apuesta():
-    """Quedársela sería cobrarles a los dos por no perder."""
-    user_id = await _jugador()
-    estado = await _empezar(user_id)
+async def test_lo_que_cobras_no_depende_de_ganarle_a_la_casa():
+    """El punto entero del pago por puntaje.
 
-    async with AsyncSessionLocal() as db:
-        fila = await partida_abierta(db, user_id)
-        partida = reconstruir(fila)
+    Se liquida la misma partida tres veces, cambiando sólo quién figura como
+    ganador. El pago tiene que salir idéntico: lo único que cuenta es la
+    planilla del jugador.
+    """
+    from app.modules.games.generala.service import _liquidar
 
-        # Se fuerza el empate sobre la partida reconstruida.
-        partida.terminada = True
-        partida.ganador = None
+    pagos_vistos = []
 
-        from app.modules.games.generala.service import _liquidar
+    for ganador in (JUGADOR, CASA, None):
+        user_id = await _jugador()
+        await _empezar(user_id)
 
-        await _liquidar(db, fila, partida)
-        await db.commit()
+        async with AsyncSessionLocal() as db:
+            fila = await partida_abierta(db, user_id)
+            partida = reconstruir(fila)
+            # Se fuerza el final con un ganador distinto cada vez.
+            partida.terminada = True
+            partida.ganador = ganador
 
-    assert await _saldo(user_id) == SALDO
+            await _liquidar(db, fila, partida)
+            await db.commit()
+            pagos_vistos.append((Decimal(fila.payout), fila.puntaje))
+
+    montos = {monto for monto, _ in pagos_vistos}
+    puntajes = {puntaje for _, puntaje in pagos_vistos}
+    assert len(montos) == 1, pagos_vistos
+    assert len(puntajes) == 1, pagos_vistos
 
 
 async def test_una_partida_terminada_no_se_juega_mas():
@@ -349,3 +356,84 @@ async def test_con_el_seed_revelado_los_dados_se_rehacen():
     assert rehecha.terminada
     assert rehecha.ganador == estado["ganador"]
     assert [rehecha.total(0), rehecha.total(1)] == estado["totales"]
+
+
+# ------------------------------ las partidas viejas ------------------------------
+
+async def test_una_partida_vieja_se_rehace_con_la_regla_vieja():
+    """Provably fair quiere decir que lo ya jugado sigue verificando.
+
+    Las partidas anteriores al pago por puntaje se jugaron con la generala
+    servida cortando la partida. Si se las reconstruyera con la regla nueva,
+    las mismas acciones darían otra partida y el jugador no podría verificar
+    lo que ya jugó. Por eso la regla se guarda por fila y no se lee de una
+    constante global.
+    """
+    from app.modules.games.generala.service import (
+        CORTA_SERVIDA_DE,
+        CORTA_SERVIDA_DE_LAS_VIEJAS,
+    )
+
+    user_id = await _jugador()
+    await _empezar(user_id)
+
+    async with AsyncSessionLocal() as db:
+        fila = await partida_abierta(db, user_id)
+
+        assert fila.paga_por_puntaje is True
+        assert reconstruir(fila).corta_servida_de == CORTA_SERVIDA_DE
+
+        fila.paga_por_puntaje = False
+        await db.commit()
+
+    async with AsyncSessionLocal() as db:
+        fila = await partida_abierta(db, user_id)
+        assert reconstruir(fila).corta_servida_de == CORTA_SERVIDA_DE_LAS_VIEJAS
+
+
+async def test_la_servida_de_la_casa_ya_no_te_corta_la_planilla():
+    """Cortarte sería sacarte plata con un volado que no jugaste.
+
+    Con pago por puntaje lo que cobrás es tu planilla, así que una servida de
+    la casa no puede dejártela a medio llenar.
+    """
+    user_id = await _jugador()
+    estado = await _empezar(user_id)
+
+    assert not estado["terminada"]
+
+    async with AsyncSessionLocal() as db:
+        fila = await partida_abierta(db, user_id)
+        assert reconstruir(fila).corta_servida_de == ()
+
+
+async def test_el_puntaje_y_el_multiplicador_quedan_guardados():
+    user_id = await _jugador()
+    estado = await _empezar(user_id)
+    estado = await _jugar_hasta_el_final(user_id, estado)
+
+    async with AsyncSessionLocal() as db:
+        fila = await db.scalar(
+            select(GeneralaPartida)
+            .where(GeneralaPartida.user_id == user_id)
+            .order_by(GeneralaPartida.id.desc())
+        )
+
+    assert fila.puntaje == estado["puntaje"]
+    assert fila.puntaje == reconstruir(fila).total(JUGADOR)
+    assert Decimal(fila.payout) == pagos.premio(
+        APUESTA, fila.puntaje, estado["generala_servida"]
+    )
+
+
+async def test_la_proyeccion_acompaña_lo_anotado():
+    """Lo que cobrarías si cerrara ahora. Es lo que hace entendible el pago."""
+    user_id = await _jugador()
+    estado = await _empezar(user_id)
+
+    assert Decimal(estado["proyeccion"]) == pagos.premio(
+        APUESTA, estado["puntaje"], estado["generala_servida"]
+    )
+
+    estado = await _jugar_hasta_el_final(user_id, estado)
+    assert Decimal(estado["proyeccion"]) == Decimal(estado["payout"])

@@ -9,7 +9,11 @@ La generala servida corta la partida en el acto. Es la única forma de ganar
 sin llenar la planilla.
 """
 
-from app.modules.games.generala.dados import CATEGORIAS, es_generala
+from app.modules.games.generala.dados import (
+    CATEGORIAS,
+    PUNTAJE_SERVIDA,
+    es_generala,
+)
 from app.modules.games.generala.fairness import FlujoDeDados
 from app.modules.games.generala.turno import Turno, aplicar_accion
 
@@ -25,11 +29,20 @@ class Partida:
         client_seed: str,
         nonce: int,
         empieza: int = 0,
+        corta_servida_de=(0, 1),
     ):
         self.server_seed = server_seed
         self.client_seed = client_seed
         self.nonce = nonce
         self.empieza = empieza
+
+        # Qué asientos cortan la partida con una generala servida. Son los dos
+        # en la generala de verdad, que es simétrica. La excepción es el modo
+        # que paga por puntaje: ahí lo que cobrás depende sólo de tu planilla,
+        # así que una servida de la casa no tiene por qué cortarte la partida
+        # —sería sacarte plata con un volado que no jugaste—, mientras que la
+        # tuya sí, porque es un evento de pago tuyo.
+        self.corta_servida_de = tuple(corta_servida_de)
 
         # Un solo flujo para toda la partida: los dados salen en el orden en
         # que se tiran, así rehacer las acciones rehace la partida entera.
@@ -72,11 +85,20 @@ class Partida:
         - Si está tachada con cero, no hay premio: el jugador la resignó y el
           turno sigue como cualquier otro. Sin este caso el motor rompía,
           porque intentaba anotar en una fila ya usada.
+        - Si este asiento no corta (ver `corta_servida_de`), se anota la
+          generala y la partida sigue. Los puntos se ganan igual; lo que no
+          pasa es el final anticipado.
         """
         jugador = self.en_turno
         anotada = self.planillas[jugador]["generala"]
 
         if anotada == 0:
+            return
+
+        if jugador not in self.corta_servida_de:
+            # Anotar acá cerraría el turno sin pasar por cerrar_turno(), así
+            # que no se toca: el turno sigue su curso y el jugador elige. Con
+            # cinco iguales en la mano va a anotar la generala igual.
             return
 
         if anotada is None:
@@ -118,6 +140,19 @@ class Partida:
             if puntos is None
         ]
 
+    def anoto_generala_servida(self, jugador: int) -> bool:
+        """¿Anotó la generala en la primera tirada?
+
+        Sale de la planilla y no de un flag aparte: la generala servida son 60
+        puntos y la armada 50, así que el puntaje anotado ya lo dice. Importa
+        que se derive del estado reconstruido, porque es lo que hace que el
+        premio por servida se pueda verificar desde las acciones guardadas.
+
+        No sirve `generala_servida_de`: ese se setea sólo cuando la servida
+        corta la partida, y en el modo que paga por puntaje no corta.
+        """
+        return self.planillas[jugador]["generala"] == PUNTAJE_SERVIDA["generala"]
+
     def total(self, jugador: int) -> int:
         return sum(
             puntos for puntos in self.planillas[jugador].values() if puntos is not None
@@ -146,7 +181,9 @@ class Partida:
         return estado
 
 
-def reconstruir_desde(server_seed, client_seed, nonce, empieza, acciones) -> Partida:
+def reconstruir_desde(
+    server_seed, client_seed, nonce, empieza, acciones, corta_servida_de=(0, 1)
+) -> Partida:
     """Rehace una partida reproduciendo el registro de acciones.
 
     Es lo que hace que no haga falta guardar el estado: el flujo de dados se
@@ -159,8 +196,18 @@ def reconstruir_desde(server_seed, client_seed, nonce, empieza, acciones) -> Par
     No valida de quién era el turno. Eso se chequea al aceptar la acción, no
     al releerla: acá las acciones ya están guardadas y el orden de los turnos
     lo determina el motor.
+
+    `corta_servida_de` tiene que ser el mismo con el que se jugó la partida,
+    no el que esté de moda hoy: con otra regla las mismas acciones dan otra
+    partida y lo ya jugado deja de verificar. Por eso la fila lo guarda.
     """
-    partida = Partida(server_seed, client_seed, nonce, empieza=empieza)
+    partida = Partida(
+        server_seed,
+        client_seed,
+        nonce,
+        empieza=empieza,
+        corta_servida_de=corta_servida_de,
+    )
 
     for entrada in acciones:
         if partida.terminada:
