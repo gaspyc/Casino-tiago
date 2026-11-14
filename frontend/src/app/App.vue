@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <header v-if="isAuthenticated" class="glass-panel main-header">
-      <div class="logo">Casino<span>tiago</span></div>
+      <div class="logo">Casino<span>Social</span></div>
       <button @click="logout" class="btn-logout">Cerrar Sesión</button>
     </header>
     <main class="main-content">

@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="glass-panel login-card">
       <div class="header">
-        <h1>Casino<span>tiago</span></h1>
+        <h1>Casino<span>Social</span></h1>
         <p>Inicia sesión o regístrate para jugar</p>
       </div>
       
