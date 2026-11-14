@@ -1,8 +1,10 @@
 <template>
-  <div class="transaction-table-widget glass-panel">
+  <div class="transaction-table-widget glass-panel" :class="{ vacio: !loading && !transactions.length }">
     <h3>Historial de Movimientos</h3>
     <div v-if="loading" class="loading">Cargando...</div>
-    <div v-else-if="transactions.length === 0" class="empty">No hay movimientos registrados aún.</div>
+    <div v-else-if="transactions.length === 0" class="empty">
+      Todavía no jugaste nada. Acá van a aparecer tus apuestas y tus cobros.
+    </div>
     <div class="table-container" v-else>
       <table>
         <thead>
@@ -141,10 +143,28 @@ th {
 .text-green { color: var(--accent-green); font-weight: bold; }
 .text-red { color: var(--accent-red); font-weight: bold; }
 
-.empty, .loading {
+.loading {
   text-align: center;
   padding: 40px;
   color: var(--text-muted);
   font-style: italic;
+}
+
+.empty {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.vacio {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 14px 18px;
+}
+
+.vacio h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  white-space: nowrap;
 }
 </style>

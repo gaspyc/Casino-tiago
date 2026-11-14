@@ -20,16 +20,22 @@ export const GRUPOS = [
     id: 'criollos',
     titulo: 'Criollos',
     bajada: 'Los de acá. Contra la casa o mano a mano con otro jugador.',
+    icono: '🧉',
+    color: '#f59e0b',
   },
   {
     id: 'casa',
     titulo: 'Contra la casa',
     bajada: 'Entrás y jugás. No hace falta que haya nadie más.',
+    icono: '🎰',
+    color: '#38bdf8',
   },
   {
     id: 'gente',
     titulo: 'Con otros jugadores',
     bajada: 'Mesas en vivo. La casa cobra comisión, no juega.',
+    icono: '👥',
+    color: '#a78bfa',
   },
 ];
 
@@ -39,10 +45,22 @@ export const MARCAS = {
   pvp: { texto: 'También PvP', clase: 'marca-pvp' },
 };
 
+/**
+ * `patron` es el fondo de la portada de la tarjeta. Son cinco y se reparten
+ * entre los doce juegos: lo que diferencia una tarjeta de otra es su color
+ * propio combinado con el patron, no un archivo de arte por juego.
+ *
+ * Es un reemplazo, no la solucion: un lobby de casino de verdad tiene
+ * ilustracion por juego. Esto levanta el piso sin inventar un pipeline de
+ * assets que todavia no existe.
+ */
+export const PATRONES = ['rayos', 'puntos', 'diagonal', 'ondas', 'grilla'];
+
 export const JUEGOS = [
   // --------------------------- criollos ---------------------------
   {
     id: 'truco',
+    patron: 'diagonal',
     nombre: 'Truco',
     descripcion:
       'Envido, truco y mentir todo lo que haga falta. Contra la casa o en mesa con otro.',
@@ -54,6 +72,7 @@ export const JUEGOS = [
   },
   {
     id: 'generala',
+    patron: 'puntos',
     nombre: 'Generala',
     descripcion:
       'Cinco dados y diez categorías. Contra la casa cobrás por puntaje; en mesa, gana el que más suma.',
@@ -67,6 +86,7 @@ export const JUEGOS = [
   // --------------------------- contra la casa ---------------------------
   {
     id: 'dice',
+    patron: 'grilla',
     nombre: 'Dice',
     descripcion:
       'Elegís el objetivo y el lado. El pago sale de la chance: cuanto más difícil, más paga.',
@@ -78,6 +98,7 @@ export const JUEGOS = [
   },
   {
     id: 'limbo',
+    patron: 'rayos',
     nombre: 'Limbo',
     descripcion:
       'Apostá a que el multiplicador sorteado llega al tuyo. El crash, sin esperar.',
@@ -89,6 +110,7 @@ export const JUEGOS = [
   },
   {
     id: 'mines',
+    patron: 'puntos',
     nombre: 'Mines',
     descripcion:
       'Destapá casillas sin tocar una mina. Cobrá cuando quieras, el multiplicador sube con cada acierto.',
@@ -100,6 +122,7 @@ export const JUEGOS = [
   },
   {
     id: 'plinko',
+    patron: 'ondas',
     nombre: 'Plinko',
     descripcion:
       'Elegí riesgo y filas, y dejá caer la bola buscando los multiplicadores de los bordes.',
@@ -111,6 +134,7 @@ export const JUEGOS = [
   },
   {
     id: 'roulette',
+    patron: 'rayos',
     nombre: 'Ruleta Europea',
     descripcion: 'Apostá a números, colores o docenas. Un solo cero.',
     icono: '🎡',
@@ -121,6 +145,7 @@ export const JUEGOS = [
   },
   {
     id: 'slots',
+    patron: 'diagonal',
     nombre: 'Tragamonedas',
     descripcion: 'La clásica de tres rodillos. Paga en 2 de cada 3 tiradas.',
     icono: '🎰',
@@ -131,6 +156,7 @@ export const JUEGOS = [
   },
   {
     id: 'blackjack',
+    patron: 'grilla',
     nombre: 'Blackjack (21)',
     descripcion: 'Mano a mano contra el crupier. Doblar, separar y plantarse a tiempo.',
     icono: '🃏',
@@ -143,6 +169,7 @@ export const JUEGOS = [
   // --------------------------- con otros jugadores ---------------------------
   {
     id: 'crash',
+    patron: 'rayos',
     nombre: 'Crash',
     descripcion: 'El multiplicador sube y explota. Retirate antes, con todos mirando.',
     icono: '📈',
@@ -153,6 +180,7 @@ export const JUEGOS = [
   },
   {
     id: 'poker',
+    patron: 'diagonal',
     nombre: "Texas Hold'em",
     descripcion: 'Mesas cash en vivo. Farolear y ganar el pozo.',
     icono: '♠️',
@@ -165,6 +193,7 @@ export const JUEGOS = [
   },
   {
     id: 'blackjack-mp',
+    patron: 'puntos',
     nombre: 'Blackjack Multijugador',
     descripcion: 'La misma mesa de 21, con otros jugadores sentados.',
     icono: '👥',
