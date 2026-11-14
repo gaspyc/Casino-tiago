@@ -6,7 +6,6 @@
         <h2>{{ tableState?.name || 'Cargando...' }}</h2>
         <span class="status-badge">{{ tableState?.status || '...' }}</span>
       </div>
-      <div class="balance">Saldo: ${{ balance }}</div>
     </div>
     
     <div class="main-layout glass-panel" v-if="tableState">
@@ -95,6 +94,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '../shared/api';
+import { fijarSaldo } from '../shared/saldo';
 
 const route = useRoute();
 const router = useRouter();
@@ -112,6 +112,7 @@ const loadUserData = async () => {
   try {
     const res = await api.get('/wallet/balance');
     balance.value = parseFloat(res.data.balance).toFixed(2);
+    fijarSaldo(balance.value);
     
     // Obtener información del usuario real desde la API
     const userRes = await api.get('/users/me');

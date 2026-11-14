@@ -1,6 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
 
 :root {
+  /* El ancho util de la aplicacion. El lobby lo usa entero porque es una
+     grilla de tarjetas y cuantas mas entren por fila, mejor. Las pantallas de
+     juego NO: tienen un ancho natural y estirarlas deja el tablero chiquito
+     en el medio con los controles a un viaje de mouse de distancia. */
+  --ancho-maximo: 1680px;
   --primary: #8a2be2;
   --primary-hover: #9b4dff;
   --bg-dark: #0f172a;

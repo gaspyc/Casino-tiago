@@ -2,7 +2,6 @@
   <div class="truco-container">
     <div class="glass-panel header-row">
       <button class="back-btn" @click="salir">← Volver al Lobby</button>
-      <span class="saldo">Saldo: ${{ saldo }}</span>
     </div>
 
     <h2 class="titulo">Truco</h2>
@@ -220,6 +219,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../shared/api';
+import { fijarSaldo } from '../shared/saldo';
 import FairnessPanel from '../widgets/FairnessPanel.vue';
 
 const router = useRouter();
@@ -296,6 +296,7 @@ const resultadoDeRonda = (indice) => {
 const cargarSaldo = async () => {
   const res = await api.get('/wallet/balance');
   saldo.value = parseFloat(res.data.balance).toFixed(2);
+  fijarSaldo(saldo.value);
 };
 
 const cargarMesas = async () => {

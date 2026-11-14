@@ -2,7 +2,6 @@
   <div class="limbo-page">
     <div class="glass-panel header-row">
       <button class="btn-back" @click="router.push('/lobby')">← Volver al Lobby</button>
-      <div class="balance">Saldo: ${{ balance }}</div>
     </div>
 
     <div class="main-layout">
@@ -123,6 +122,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import confetti from 'canvas-confetti';
 import api from '../shared/api';
+import { fijarSaldo } from '../shared/saldo';
 import FairnessPanel from '../widgets/FairnessPanel.vue';
 
 const ATAJOS = ['1.50', '2.00', '5.00', '10.00', '50.00'];
@@ -188,6 +188,7 @@ const cargarSaldo = async () => {
   try {
     const res = await api.get('/wallet/balance');
     balance.value = parseFloat(res.data.balance).toFixed(2);
+    fijarSaldo(balance.value);
   } catch {
     // El saldo se vuelve a pedir en cada jugada.
   }

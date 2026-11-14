@@ -2,7 +2,6 @@
   <div class="roulette-page">
     <div class="glass-panel header-row">
       <button @click="router.push('/lobby')" class="btn-back">← Volver al Lobby</button>
-      <div class="balance">Saldo: ${{ balance }}</div>
     </div>
 
     <div class="main-layout">
@@ -48,6 +47,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import confetti from 'canvas-confetti';
 import api from '../shared/api';
+import { fijarSaldo } from '../shared/saldo';
 import RouletteBoard from '../widgets/RouletteBoard.vue';
 import ChipSelector from '../widgets/ChipSelector.vue';
 import { useBettingState } from '../features/useBettingState';
@@ -69,6 +69,7 @@ const loadBalance = async () => {
   try {
     const res = await api.get('/wallet/balance');
     balance.value = parseFloat(res.data.balance).toFixed(2);
+    fijarSaldo(balance.value);
   } catch (e) {
     console.error(e);
   }

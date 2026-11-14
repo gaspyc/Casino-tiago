@@ -2,7 +2,6 @@
   <div class="generala-page">
     <div class="glass-panel header-row">
       <button class="btn-back" @click="salir">← Volver al Lobby</button>
-      <div class="balance">Saldo: ${{ balance }}</div>
     </div>
 
     <!-- Elegir contra quién y apostar -->
@@ -261,6 +260,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import confetti from 'canvas-confetti';
 import api from '../shared/api';
+import { fijarSaldo } from '../shared/saldo';
 import FairnessPanel from '../widgets/FairnessPanel.vue';
 
 const CARAS = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
@@ -408,6 +408,7 @@ const cargarSaldo = async () => {
   try {
     const res = await api.get('/wallet/balance');
     balance.value = parseFloat(res.data.balance).toFixed(2);
+    fijarSaldo(balance.value);
   } catch {
     // El saldo se vuelve a pedir en cada jugada.
   }

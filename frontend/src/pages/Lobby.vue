@@ -136,7 +136,7 @@ const processTransaction = async () => {
 <style scoped>
 .lobby-container {
   padding: 20px 40px;
-  max-width: 1200px;
+  max-width: var(--ancho-maximo, 1680px);
   margin: 0 auto;
   width: 100%;
 }

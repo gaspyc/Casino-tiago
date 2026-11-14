@@ -2,7 +2,6 @@
   <div class="plinko-page">
     <div class="glass-panel header-row">
       <button @click="router.push('/lobby')" class="btn-back">← Volver al Lobby</button>
-      <div class="balance">Saldo: ${{ balance }}</div>
     </div>
 
     <div class="plinko-shell">
@@ -104,6 +103,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router';
 import confetti from 'canvas-confetti';
 import api from '../shared/api';
+import { fijarSaldo } from '../shared/saldo';
 import FairnessPanel from '../widgets/FairnessPanel.vue';
 
 const router = useRouter();
@@ -229,6 +229,7 @@ const rotarSemilla = async () => {
 const loadBalance = async () => {
   const res = await api.get('/wallet/balance');
   balance.value = parseFloat(res.data.balance).toFixed(2);
+  fijarSaldo(balance.value);
 };
 
 const formatMoney = (value) => parseFloat(value).toFixed(2);
