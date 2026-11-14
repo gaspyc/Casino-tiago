@@ -1,21 +1,6 @@
 <template>
   <div class="lobby-container">
-    <div v-if="loading" class="loading">Cargando...</div>
-    
-    <div v-else class="dashboard">
-      <div class="glass-panel balance-card">
-        <h2>Hola, {{ user?.username }}</h2>
-        <div class="balance-display">
-          <span class="currency">$</span>
-          <span class="amount">{{ balance }}</span>
-        </div>
-        
-        <div class="actions">
-          <button @click="showDeposit = true" class="btn btn-deposit">Depositar</button>
-          <button @click="showWithdraw = true" class="btn btn-withdraw">Retirar</button>
-        </div>
-      </div>
-
+    <div class="dashboard">
       <section v-for="grupo in GRUPOS" :key="grupo.id" class="grupo">
         <header class="grupo-head">
           <h3>{{ grupo.titulo }}</h3>
@@ -53,84 +38,20 @@
       </section>
     </div>
 
-    <!-- Modal Transacciones -->
-    <div v-if="showDeposit || showWithdraw" class="modal-overlay" @click.self="closeModals">
-      <div class="glass-panel modal">
-        <h3>{{ showDeposit ? 'Depositar Fondos' : 'Retirar Fondos' }}</h3>
-        <input type="number" v-model.number="txAmount" placeholder="Monto" min="1" step="0.01" />
-        <div v-if="txError" class="tx-error">{{ txError }}</div>
-        <div class="modal-actions">
-          <button class="btn" @click="closeModals" style="background: transparent; border: 1px solid white;">Cancelar</button>
-          <button class="btn" @click="processTransaction" :disabled="txLoading">Confirmar</button>
-        </div>
-      </div>
-    </div>
-    
     <TransactionTable />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+// El saldo, el deposito y el retiro viven en la barra de arriba (App.vue):
+// el saldo se muestra en todas las pantallas, asi que repetirlo aca en una
+// tarjeta gigante lo dejaba dos veces en la misma pantalla y empujaba los
+// juegos abajo del pliegue.
 import { useRouter } from 'vue-router';
-import api from '../shared/api';
 import { GRUPOS, MARCAS, juegosDe } from '../shared/juegos';
 import TransactionTable from '../widgets/TransactionTable.vue';
 
 const router = useRouter();
-const loading = ref(true);
-const user = ref(null);
-const balance = ref('0.00');
-
-const showDeposit = ref(false);
-const showWithdraw = ref(false);
-const txAmount = ref('');
-const txLoading = ref(false);
-const txError = ref('');
-
-const loadData = async () => {
-  try {
-    const userRes = await api.get('/users/me');
-    user.value = userRes.data;
-    
-    const balRes = await api.get('/wallet/balance');
-    balance.value = parseFloat(balRes.data.balance).toFixed(2);
-  } catch (e) {
-    console.error(e);
-  } finally {
-    loading.value = false;
-  }
-};
-
-onMounted(loadData);
-
-const closeModals = () => {
-  showDeposit.value = false;
-  showWithdraw.value = false;
-  txAmount.value = '';
-  txError.value = '';
-};
-
-const processTransaction = async () => {
-  if (!txAmount.value || txAmount.value <= 0) {
-    txError.value = 'Ingresa un monto válido';
-    return;
-  }
-  
-  txLoading.value = true;
-  txError.value = '';
-  const endpoint = showDeposit.value ? '/wallet/deposit' : '/wallet/withdraw';
-  
-  try {
-    await api.post(endpoint, { amount: txAmount.value });
-    await loadData();
-    closeModals();
-  } catch (e) {
-    txError.value = e.response?.data?.detail || 'Error en la transacción';
-  } finally {
-    txLoading.value = false;
-  }
-};
 </script>
 
 <style scoped>
@@ -246,12 +167,12 @@ const processTransaction = async () => {
 
 .games-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+  gap: 14px;
 }
 
 .game-card {
-  padding: 30px;
+  padding: 18px 16px;
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: center;
@@ -267,19 +188,26 @@ const processTransaction = async () => {
 }
 
 .game-icon {
-  font-size: 4rem;
-  margin-bottom: 16px;
+  font-size: 2.3rem;
+  margin-bottom: 9px;
 }
 
 .game-card h3 {
-  margin-bottom: 10px;
-  font-size: 1.5rem;
+  margin-bottom: 6px;
+  font-size: 1.02rem;
 }
 
 .game-card p {
   color: var(--text-muted);
-  margin-bottom: 24px;
-  font-size: 0.9rem;
+  margin-bottom: 12px;
+  font-size: 0.73rem;
+  line-height: 1.4;
+  /* A dos lineas: la descripcion ayuda a elegir, pero si crece empareja la
+     altura de todas las tarjetas con la del texto mas largo. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .play-btn {
