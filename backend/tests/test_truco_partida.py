@@ -239,8 +239,17 @@ def test_una_partida_entre_bots_siempre_termina():
 
 
 def test_el_bot_le_gana_al_azar():
-    """Piso de competencia: si no le gana al azar, no sirve para la casa."""
-    partidas = 40
+    """Piso de competencia: si no le gana al azar, no sirve para la casa.
+
+    El azar de `_al_azar` sale del CSPRNG del sistema, que no se siembra, así
+    que la proporción medida cambia en cada corrida. El bot gana ~90% y el
+    umbral está en 80%: con 40 partidas el desvío de la proporción es de ~4,6
+    puntos, el umbral queda a poco más de dos sigmas y el test falla por ruido
+    una corrida de cada treinta. Con 300 el desvío baja a ~1,7 puntos y el
+    umbral queda a más de seis sigmas: lejos del ruido, pero sin fijar semilla,
+    así que si el bot empeorara de verdad el test lo marca. Cuesta ~0,1s.
+    """
+    partidas = 300
     ganadas = 0
 
     for numero in range(partidas):
