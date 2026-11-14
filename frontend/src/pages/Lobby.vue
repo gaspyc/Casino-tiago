@@ -52,6 +52,20 @@
           <div class="play-btn" style="color: #f97316;">Jugar Generala</div>
         </div>
 
+        <div class="glass-panel game-card" style="border-top-color: #38bdf8;" @click="router.push('/dice')">
+          <div class="game-icon">🎯</div>
+          <h3>Dice</h3>
+          <p>Elegís el objetivo y el lado. El pago sale de la chance: cuanto más difícil, más paga.</p>
+          <div class="play-btn" style="color: #38bdf8;">Jugar Dice</div>
+        </div>
+
+        <div class="glass-panel game-card" style="border-top-color: #a78bfa;" @click="router.push('/limbo')">
+          <div class="game-icon">🚀</div>
+          <h3>Limbo</h3>
+          <p>Apostá a que el multiplicador sorteado llega al tuyo. El crash, sin esperar.</p>
+          <div class="play-btn" style="color: #a78bfa;">Jugar Limbo</div>
+        </div>
+
         <div class="glass-panel game-card" style="border-top-color: #eab308;" @click="router.push('/truco')">
           <div class="game-icon">🂡</div>
           <h3>Truco</h3>
