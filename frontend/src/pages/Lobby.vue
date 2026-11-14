@@ -16,91 +16,41 @@
         </div>
       </div>
 
-      <div class="games-grid">
-        <div class="glass-panel game-card" @click="router.push('/roulette')">
-          <div class="game-icon">🎡</div>
-          <h3>Ruleta Europea</h3>
-          <p>Apuesta a números o colores y multiplica tus ganancias.</p>
-          <div class="play-btn">Jugar Ahora</div>
-        </div>
-        
-        <div class="glass-panel game-card" @click="router.push('/slots')">
-          <div class="game-icon">🎰</div>
-          <h3>Tragamonedas</h3>
-          <p>La clásica máquina de 3 rodillos. Paga en 2 de cada 3 tiradas.</p>
-          <div class="play-btn">Jugar Ahora</div>
-        </div>
+      <section v-for="grupo in GRUPOS" :key="grupo.id" class="grupo">
+        <header class="grupo-head">
+          <h3>{{ grupo.titulo }}</h3>
+          <p>{{ grupo.bajada }}</p>
+        </header>
 
-        <div class="glass-panel game-card" style="border-top-color: #22c55e;" @click="router.push('/plinko')">
-          <div class="game-icon">PL</div>
-          <h3>Plinko</h3>
-          <p>Elige riesgo, filas y deja caer la bola para buscar grandes multiplicadores.</p>
-          <div class="play-btn" style="color: #22c55e;">Jugar Plinko</div>
-        </div>
+        <div class="games-grid">
+          <div
+            v-for="juego in juegosDe(grupo.id)"
+            :key="juego.id"
+            class="glass-panel game-card"
+            :style="{ borderTopColor: juego.color }"
+            @click="router.push(juego.ruta)"
+          >
+            <div class="game-icon">{{ juego.icono }}</div>
+            <h3>{{ juego.nombre }}</h3>
 
-        <div class="glass-panel game-card" style="border-top-color: #06b6d4;" @click="router.push('/mines')">
-          <div class="game-icon">💣</div>
-          <h3>Mines</h3>
-          <p>Destapá casillas sin tocar una mina. Cobrá cuando quieras, el multiplicador sube con cada acierto.</p>
-          <div class="play-btn" style="color: #06b6d4;">Jugar Mines</div>
-        </div>
+            <div v-if="juego.marcas.length" class="marcas">
+              <span
+                v-for="marca in juego.marcas"
+                :key="marca"
+                class="marca"
+                :class="MARCAS[marca].clase"
+              >
+                {{ MARCAS[marca].texto }}
+              </span>
+            </div>
 
-        <div class="glass-panel game-card" style="border-top-color: #f97316;" @click="router.push('/generala')">
-          <div class="game-icon">🎲</div>
-          <h3>Generala</h3>
-          <p>Cinco dados. Contra la casa cobrás por puntaje; mano a mano con otro jugador, gana el que más suma.</p>
-          <div class="play-btn" style="color: #f97316;">Jugar Generala</div>
+            <p>{{ juego.descripcion }}</p>
+            <div class="play-btn" :style="{ color: juego.color }">
+              Jugar {{ juego.nombre }}
+            </div>
+          </div>
         </div>
-
-        <div class="glass-panel game-card" style="border-top-color: #38bdf8;" @click="router.push('/dice')">
-          <div class="game-icon">🎯</div>
-          <h3>Dice</h3>
-          <p>Elegís el objetivo y el lado. El pago sale de la chance: cuanto más difícil, más paga.</p>
-          <div class="play-btn" style="color: #38bdf8;">Jugar Dice</div>
-        </div>
-
-        <div class="glass-panel game-card" style="border-top-color: #a78bfa;" @click="router.push('/limbo')">
-          <div class="game-icon">🚀</div>
-          <h3>Limbo</h3>
-          <p>Apostá a que el multiplicador sorteado llega al tuyo. El crash, sin esperar.</p>
-          <div class="play-btn" style="color: #a78bfa;">Jugar Limbo</div>
-        </div>
-
-        <div class="glass-panel game-card" style="border-top-color: #eab308;" @click="router.push('/truco')">
-          <div class="game-icon">🂡</div>
-          <h3>Truco</h3>
-          <p>Mano a mano contra la casa. Envido, truco y mentir todo lo que haga falta.</p>
-          <div class="play-btn" style="color: #eab308;">Jugar Truco</div>
-        </div>
-
-        <div class="glass-panel game-card" @click="router.push('/blackjack')">
-          <div class="game-icon">🃏</div>
-          <h3>Blackjack (21)</h3>
-          <p>Desafía al Croupier. Demuestra tu estrategia para llegar a 21.</p>
-          <div class="play-btn">Jugar Ahora</div>
-        </div>
-        
-        <div class="glass-panel game-card" style="border-top-color: #8b5cf6;" @click="router.push('/lobby-blackjack')">
-          <div class="game-icon">👥</div>
-          <h3>Blackjack Multijugador</h3>
-          <p>Juega en vivo con otros usuarios en la misma mesa.</p>
-          <div class="play-btn" style="color: #8b5cf6;">Ver Salas</div>
-        </div>
-
-        <div class="glass-panel game-card" style="border-top-color: #ef4444;" @click="router.push('/lobby-poker')">
-          <div class="game-icon">♠️</div>
-          <h3>Texas Hold'em Poker</h3>
-          <p>Torneos y mesas cash en vivo. ¡Farolea y gana el pozo!</p>
-          <div class="play-btn" style="color: #ef4444;">Ver Salas</div>
-        </div>
-        
-        <div class="glass-panel game-card" style="border-top-color: #f59e0b;" @click="router.push('/crash')">
-          <div class="game-icon">🚀</div>
-          <h3>Crash (Multiplayer)</h3>
-          <p>El multiplicador sube, ¡retírate antes de que explote!</p>
-          <div class="play-btn" style="color: #f59e0b;">Jugar Crash</div>
-        </div>
-      </div>
+      </section>
     </div>
 
     <!-- Modal Transacciones -->
@@ -124,6 +74,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../shared/api';
+import { GRUPOS, MARCAS, juegosDe } from '../shared/juegos';
 import TransactionTable from '../widgets/TransactionTable.vue';
 
 const router = useRouter();
@@ -245,6 +196,52 @@ const processTransaction = async () => {
 .btn-withdraw {
   background: transparent;
   border: 1px solid var(--text-muted);
+}
+
+.grupo {
+  margin-bottom: 30px;
+}
+
+.grupo-head {
+  margin-bottom: 14px;
+  padding-left: 2px;
+}
+
+.grupo-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.2px;
+}
+
+.grupo-head p {
+  margin: 3px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+}
+
+.marcas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  margin: 6px 0 2px;
+}
+
+.marca {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  border: 1px solid currentColor;
+}
+
+.marca-rapida {
+  color: #38bdf8;
+}
+
+.marca-pvp {
+  color: #34d399;
 }
 
 .games-grid {

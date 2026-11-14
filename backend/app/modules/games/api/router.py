@@ -16,19 +16,18 @@ from app.modules.games.truco.router import router as truco_router
 router = APIRouter(prefix="/games", tags=["Games"])
 
 
-@router.get("/")
-async def list_games():
-    return [
-        {"id": "roulette", "name": "European Roulette", "category": "Table"},
-        {"id": "slots", "name": "Classic Slots", "category": "Slots"},
-        {"id": "blackjack", "name": "Blackjack", "category": "Cards"},
-        {"id": "poker", "name": "Poker", "category": "Cards"},
-        {"id": "crash", "name": "Crash", "category": "Arcade"},
-        {"id": "plinko", "name": "Plinko", "category": "Arcade"},
-        {"id": "truco", "name": "Truco", "category": "Cards"},
-        {"id": "dice", "name": "Dice", "category": "Arcade"},
-        {"id": "limbo", "name": "Limbo", "category": "Arcade"},
-    ]
+# El catálogo de juegos vive en el frontend, en `shared/juegos.js`.
+#
+# Acá había un `GET /games/` que devolvía la lista con su categoría y que no
+# llamaba nadie: el lobby tenía las tarjetas escritas a mano. Quedó vieja sin
+# que nada lo avisara —le faltaban Mines, Generala y Blackjack Multijugador—
+# porque ninguna pantalla la renderizaba, así que un dato equivocado no se
+# veía nunca. Dos catálogos que tienen que coincidir y sólo uno a la vista es
+# una forma garantizada de que el que no se ve mienta.
+#
+# Si alguna vez hace falta un catálogo por API —un cliente mobile, un panel
+# de administración— que salga de una sola definición y que la consuma algo,
+# no de una lista escrita al lado.
 
 
 router.include_router(roulette_router)
