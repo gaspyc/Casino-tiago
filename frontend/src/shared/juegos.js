@@ -19,6 +19,7 @@ export const GRUPOS = [
   {
     id: 'criollos',
     titulo: 'Criollos',
+    tituloCorto: 'Criollos',
     bajada: 'Los de acá. Contra la casa o mano a mano con otro jugador.',
     icono: '🧉',
     color: '#f59e0b',
@@ -26,6 +27,7 @@ export const GRUPOS = [
   {
     id: 'casa',
     titulo: 'Contra la casa',
+    tituloCorto: 'La casa',
     bajada: 'Entrás y jugás. No hace falta que haya nadie más.',
     icono: '🎰',
     color: '#38bdf8',
@@ -33,6 +35,7 @@ export const GRUPOS = [
   {
     id: 'gente',
     titulo: 'Con otros jugadores',
+    tituloCorto: 'En vivo',
     bajada: 'Mesas en vivo. La casa cobra comisión, no juega.',
     icono: '👥',
     color: '#a78bfa',

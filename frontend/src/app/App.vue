@@ -1,58 +1,88 @@
 <template>
-  <div class="app-container">
-    <header v-if="isAuthenticated" class="main-header">
-      <div class="header-inner">
-        <button class="logo" @click="router.push('/lobby')">
-          Casino<span>Social</span>
+  <div class="app-container" :class="{ 'con-barra': isAuthenticated }">
+    <!-- Arriba queda solo identidad y plata. La navegacion se fue a la barra
+         lateral: el topbar llevaba logo, tres secciones, billetera y cuenta,
+         y eso es demasiado trabajo para una sola fila. -->
+    <header v-if="isAuthenticated" class="topbar">
+      <button class="logo" @click="ir('/lobby')">
+        Casino<span>Social</span>
+      </button>
+
+      <div class="topbar-derecha">
+        <div class="billetera">
+          <span class="saldo-monto">${{ saldo }}</span>
+          <button class="btn-depositar" @click="abrirModal('deposito')">
+            <span class="depositar-largo">Depositar</span>
+            <span class="depositar-corto" aria-hidden="true">+</span>
+          </button>
+        </div>
+
+        <button class="btn-cuenta" @click="menuCuenta = !menuCuenta">
+          {{ usuario?.username || 'Cuenta' }}
         </button>
 
-        <nav class="nav">
-          <button
-            v-for="grupo in GRUPOS"
-            :key="grupo.id"
-            class="nav-link"
-            :class="{ activo: grupoAbierto === grupo.id }"
-            @click="alternarGrupo(grupo.id)"
-          >
-            {{ grupo.titulo }}
-          </button>
-        </nav>
-
-        <div class="header-derecha">
-          <div class="billetera">
-            <span class="saldo-monto">${{ saldo }}</span>
-            <button class="btn-depositar" @click="abrirModal('deposito')">
-              <span class="depositar-largo">Depositar</span>
-              <span class="depositar-corto" aria-hidden="true">+</span>
-            </button>
-          </div>
-          <button class="btn-cuenta" @click="menuCuenta = !menuCuenta">
-            {{ usuario?.username || 'Cuenta' }}
-          </button>
-
-          <div v-if="menuCuenta" class="menu-cuenta">
-            <button @click="abrirModal('retiro')">Retirar</button>
-            <button @click="logout">Cerrar sesión</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- El desplegable del grupo: lleva directo al juego sin pasar por el
-           lobby, que es para lo que sirve tener una barra. -->
-      <div v-if="grupoAbierto" class="desplegable" @click.self="grupoAbierto = null">
-        <div class="desplegable-inner">
-          <button
-            v-for="juego in juegosDe(grupoAbierto)"
-            :key="juego.id"
-            class="desplegable-juego"
-            @click="irA(juego)"
-          >
-            <span class="desplegable-icono">{{ juego.icono }}</span>
-            <span class="desplegable-nombre">{{ juego.nombre }}</span>
-          </button>
+        <div v-if="menuCuenta" class="menu-cuenta">
+          <button @click="abrirModal('retiro')">Retirar</button>
+          <button @click="logout">Cerrar sesión</button>
         </div>
       </div>
     </header>
+
+    <div class="cuerpo">
+      <!-- La misma navegacion en los dos lados: lateral en pantalla grande,
+           abajo en telefono. Son los mismos destinos y el mismo contenido,
+           cambia donde se apoya la mano. -->
+      <nav v-if="isAuthenticated" class="barra">
+        <button
+          class="barra-item"
+          :class="{ activo: route.path === '/lobby' && !grupoAbierto }"
+          @click="ir('/lobby')"
+        >
+          <span class="barra-icono">🏠</span>
+          <span class="barra-texto">Inicio</span>
+          <span class="barra-texto-corto">Inicio</span>
+        </button>
+
+        <div v-for="grupo in GRUPOS" :key="grupo.id" class="barra-grupo">
+          <button
+            class="barra-item"
+            :class="{ activo: grupoAbierto === grupo.id || grupoDelJuegoActual === grupo.id }"
+            :style="{ '--acento': grupo.color }"
+            @click="alternarGrupo(grupo.id)"
+          >
+            <span class="barra-icono">{{ grupo.icono }}</span>
+            <span class="barra-texto">{{ grupo.titulo }}</span>
+            <span class="barra-texto-corto">{{ grupo.tituloCorto }}</span>
+          </button>
+
+          <div v-if="grupoAbierto === grupo.id" class="barra-juegos">
+            <button
+              v-for="juego in juegosDe(grupo.id)"
+              :key="juego.id"
+              class="barra-juego"
+              :class="{ activo: route.path === juego.ruta }"
+              :style="{ '--color-juego': juego.color }"
+              @click="irAlJuego(juego)"
+            >
+              <span class="barra-juego-icono">{{ juego.icono }}</span>
+              <span>{{ juego.nombre }}</span>
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <main class="main-content" @click="cerrarMenus">
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
+      </main>
+    </div>
+
+    <!-- En telefono la lista de juegos de un grupo no entra en la barra de
+         abajo, asi que se abre como hoja sobre el contenido. -->
+    <div v-if="grupoAbierto" class="velo" @click="grupoAbierto = null"></div>
 
     <div v-if="modal" class="modal-overlay" @click.self="cerrarModal">
       <div class="glass-panel modal">
@@ -74,14 +104,6 @@
         </div>
       </div>
     </div>
-
-    <main class="main-content" @click="cerrarMenus">
-      <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </transition>
-      </router-view>
-    </main>
   </div>
 </template>
 
@@ -89,7 +111,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import api from '../shared/api';
-import { GRUPOS, juegosDe } from '../shared/juegos';
+import { GRUPOS, JUEGOS, juegosDe } from '../shared/juegos';
 import { olvidarSaldo, refrescarSaldo, saldo } from '../shared/saldo';
 
 const router = useRouter();
@@ -108,14 +130,31 @@ const isAuthenticated = computed(() => {
   return route.path !== '/login' && !!localStorage.getItem('casino_token');
 });
 
+// Para marcar la seccion del juego en el que estás parado, no sólo la que
+// abriste a mano.
+const grupoDelJuegoActual = computed(() => {
+  const juego = JUEGOS.find((j) => j.ruta === route.path);
+  return juego ? juego.grupo : null;
+});
+
+const cerrarMenus = () => {
+  grupoAbierto.value = null;
+  menuCuenta.value = null;
+};
+
+const ir = (ruta) => {
+  cerrarMenus();
+  if (route.path !== ruta) router.push(ruta);
+};
+
 const alternarGrupo = (id) => {
   grupoAbierto.value = grupoAbierto.value === id ? null : id;
   menuCuenta.value = null;
 };
 
-const cerrarMenus = () => {
-  grupoAbierto.value = null;
-  menuCuenta.value = null;
+const irAlJuego = (juego) => {
+  cerrarMenus();
+  if (route.path !== juego.ruta) router.push(juego.ruta);
 };
 
 const abrirModal = (cual) => {
@@ -154,13 +193,6 @@ const procesarTransaccion = async () => {
   }
 };
 
-const irA = (juego) => {
-  grupoAbierto.value = null;
-  if (route.path !== juego.ruta) router.push(juego.ruta);
-};
-
-// El saldo se refresca al entrar a cada pantalla. Las jugadas lo actualizan
-// por su cuenta llamando a refrescarSaldo(), así que esto es sólo el arranque.
 watch(
   () => route.path,
   () => {
@@ -169,9 +201,12 @@ watch(
 
     refrescarSaldo();
     if (!usuario.value) {
-      api.get('/users/me').then((res) => {
-        usuario.value = res.data;
-      }).catch(() => {});
+      api
+        .get('/users/me')
+        .then((res) => {
+          usuario.value = res.data;
+        })
+        .catch(() => {});
     }
   },
   { immediate: true },
@@ -193,30 +228,27 @@ const logout = () => {
   min-height: 100vh;
 }
 
-.main-header {
+/* ------------------------------ arriba ------------------------------ */
+
+.topbar {
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(15, 16, 32, 0.82);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.header-inner {
-  position: relative;
   display: flex;
   align-items: center;
-  gap: 22px;
-  padding: 12px 26px;
-  max-width: var(--ancho-maximo, 1680px);
-  margin: 0 auto;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 22px;
+  background: rgba(15, 16, 32, 0.86);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .logo {
   background: transparent;
   border: none;
   color: var(--text-main, #fff);
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -1px;
   cursor: pointer;
@@ -228,40 +260,13 @@ const logout = () => {
   color: var(--primary);
 }
 
-.nav {
-  display: flex;
-  gap: 4px;
-  flex: 1;
-}
-
-.nav-link {
-  padding: 7px 13px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted, rgba(255, 255, 255, 0.6));
-  cursor: pointer;
-  font-size: 0.83rem;
-  white-space: nowrap;
-}
-
-.nav-link:hover,
-.nav-link.activo {
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--text-main, #fff);
-}
-
-.header-derecha {
+.topbar-derecha {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-shrink: 0;
 }
 
-/* El saldo y la via para depositar, juntos: el saldo es la razon por la que
-   abris la billetera, asi que el boton va pegado al numero y no en una
-   tarjeta aparte abajo. Eso ademas deja depositar desde adentro de un juego,
-   que es justo cuando te quedas sin. */
 .billetera {
   display: flex;
   align-items: center;
@@ -318,8 +323,8 @@ const logout = () => {
 
 .menu-cuenta {
   position: absolute;
-  top: calc(100% - 4px);
-  right: 26px;
+  top: calc(100% + 8px);
+  right: 0;
   display: flex;
   flex-direction: column;
   min-width: 170px;
@@ -344,6 +349,120 @@ const logout = () => {
 .menu-cuenta button:hover {
   background: rgba(255, 255, 255, 0.07);
 }
+
+/* ------------------------------ la barra ------------------------------ */
+
+.cuerpo {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.barra {
+  position: sticky;
+  top: 55px;
+  align-self: flex-start;
+  width: 212px;
+  flex-shrink: 0;
+  max-height: calc(100vh - 55px);
+  overflow-y: auto;
+  padding: 14px 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.barra-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 11px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted, rgba(255, 255, 255, 0.62));
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.barra-item:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text-main, #fff);
+}
+
+.barra-item.activo {
+  background: color-mix(in srgb, var(--acento, var(--primary)) 16%, transparent);
+  color: var(--text-main, #fff);
+  font-weight: 600;
+}
+
+.barra-texto-corto {
+  display: none;
+}
+
+.barra-icono {
+  font-size: 1rem;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.barra-grupo {
+  margin-top: 2px;
+}
+
+.barra-juegos {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 6px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  margin-left: 20px;
+}
+
+.barra-juego {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+  cursor: pointer;
+  font-size: 0.79rem;
+  text-align: left;
+}
+
+.barra-juego:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main, #fff);
+}
+
+.barra-juego.activo {
+  color: var(--color-juego);
+  font-weight: 600;
+}
+
+.barra-juego-icono {
+  font-size: 0.95rem;
+}
+
+.main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.velo {
+  display: none;
+}
+
+/* ------------------------------ el modal ------------------------------ */
 
 .modal-overlay {
   position: fixed;
@@ -415,78 +534,19 @@ const logout = () => {
   cursor: default;
 }
 
-.desplegable {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(15, 16, 32, 0.95);
-}
+/* ------------------------------ telefono ------------------------------
+   La misma barra, apoyada abajo: es donde llega el pulgar. Los juegos de un
+   grupo no entran en una fila de cuatro, asi que se abren como hoja. */
 
-.desplegable-inner {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 12px 26px;
-  max-width: var(--ancho-maximo, 1680px);
-  margin: 0 auto;
-}
-
-.desplegable-juego {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 13px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text-main, #fff);
-  cursor: pointer;
-  font-size: 0.82rem;
-}
-
-.desplegable-juego:hover {
-  border-color: var(--primary);
-  background: rgba(139, 92, 246, 0.12);
-}
-
-.desplegable-icono {
-  font-size: 1.05rem;
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-
-@media (max-width: 760px) {
-  .header-inner {
-    flex-wrap: wrap;
-    gap: 12px;
-    padding: 10px 16px;
+@media (max-width: 860px) {
+  .topbar {
+    padding: 10px 14px;
   }
 
-  .nav {
-    order: 3;
-    /* flex-basis y no width: la regla de arriba pone `flex: 1`, que es
-       `flex-basis: 0%`, y en un contenedor flex eso le gana al width. Con
-       width solo, la barra no envolvia y los links se salian de la pantalla. */
-    flex: 1 0 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .logo {
+    font-size: 1.08rem;
   }
 
-  .nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .btn-cuenta {
-    max-width: 88px;
-  }
-
-  /* En telefono el logo, la billetera y la cuenta no entran en una fila con
-     la palabra "Depositar" completa. Se achica a un "+", que es como lo
-     resuelven los lobbies reales, y asi el encabezado baja de tres filas a
-     dos: una de cuenta y otra de secciones. */
   .depositar-largo {
     display: none;
   }
@@ -501,13 +561,105 @@ const logout = () => {
     padding: 7px 13px;
   }
 
-  .logo {
-    font-size: 1.08rem;
+  .btn-cuenta {
+    max-width: 92px;
   }
 
   .saldo-monto {
     font-size: 0.86rem;
     margin-right: 6px;
+  }
+
+  .cuerpo {
+    display: block;
+  }
+
+  .barra {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    z-index: 60;
+    display: flex;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: rgba(15, 16, 32, 0.96);
+    backdrop-filter: blur(14px);
+    border-right: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .barra-grupo {
+    flex: 1;
+    margin-top: 0;
+    min-width: 0;
+  }
+
+  .barra > .barra-item {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .barra-item {
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 2px;
+    font-size: 0.62rem;
+    text-align: center;
+  }
+
+  .barra-texto {
+    display: none;
+  }
+
+  .barra-texto-corto {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .barra-icono {
+    font-size: 1.15rem;
+    width: auto;
+  }
+
+  /* La hoja con los juegos del grupo, sobre el contenido y arriba de la
+     barra de abajo. */
+  .barra-juegos {
+    position: fixed;
+    left: 0;
+    right: 0;
+    /* Contra el viewport, no contra la barra: position fixed mide desde la
+       ventana, asi que un 100% aca mandaba la hoja fuera de pantalla. */
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    z-index: 61;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: 4px;
+    margin: 0;
+    padding: 12px 12px 14px;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px 16px 0 0;
+    background: rgba(20, 21, 40, 0.99);
+  }
+
+  .velo {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(5, 5, 15, 0.55);
+  }
+
+  /* Que el contenido no quede tapado por la barra de abajo. */
+  .main-content {
+    padding-bottom: 72px;
   }
 }
 </style>
