@@ -160,6 +160,8 @@ export const JUEGOS = [
     color: '#ef4444',
     grupo: 'gente',
     marcas: [],
+    // Abre la lista de salas, no una partida.
+    cta: 'Ver salas',
   },
   {
     id: 'blackjack-mp',
@@ -170,6 +172,7 @@ export const JUEGOS = [
     color: '#8b5cf6',
     grupo: 'gente',
     marcas: [],
+    cta: 'Ver salas',
   },
 ];
 

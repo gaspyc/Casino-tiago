@@ -46,7 +46,7 @@
 
             <p>{{ juego.descripcion }}</p>
             <div class="play-btn" :style="{ color: juego.color }">
-              Jugar {{ juego.nombre }}
+              {{ juego.cta || 'Jugar ' + juego.nombre }}
             </div>
           </div>
         </div>
